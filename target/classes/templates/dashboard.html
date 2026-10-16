@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="vi" xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinVault Enterprise - Live Dashboard & In-Place RBAC</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom Main CSS -->
+    <link rel="stylesheet" th:href="@{/css/main.css}" href="/css/main.css">
+</head>
+<body th:attr="data-username=${username}">
+
+<!-- 0. METADATA CHO JAVASCRIPT & WEBSOCKET CLIENT -->
+<div id="finvault-user-meta"
+     class="d-none"
+     th:attr="data-username=${username},
+              data-is-admin=${isSuperAdmin},
+              data-is-auditor=${isSystemAuditor},
+              data-is-family-head=${isFamilyHead}">
+</div>
+
+<!-- FLOATING TOAST NOTIFICATIONS CONTAINER (STOMP WEBSOCKET ALERTS) -->
+<div id="toast-container" class="toast-container"></div>
+
+<!-- 1. SYSTEM BANNER (Chạy thông báo hệ thống quản trị Live CMS) -->
+<div class="system-banner-bar d-flex align-items-center justify-content-between px-3">
+    <div class="d-flex align-items-center text-truncate me-3">
+        <i class="bi bi-megaphone-fill text-warning me-2"></i>
+        <span class="fw-semibold text-truncate" th:text="${bannerMessage}">Hệ thống FinVault Enterprise đang hoạt động ổn định với cơ chế Live UI & Dynamic RBAC.</span>
+    </div>
+    <div class="d-flex align-items-center gap-2 flex-shrink-0">
+        <span th:if="${isSuperAdmin}" class="badge bg-light text-dark cursor-pointer"
+              th:data-key="'SYSTEM_BANNER_MESSAGE'"
+              th:data-val="${bannerMessage}"
+              th:data-group="'SYSTEM_NOTIFICATION'"
+              th:data-desc="'Banner thông báo chạy trên thanh tiêu đề hệ thống'"
+              onclick="openEditConfigFromButton(this)">
+            <i class="bi bi-pencil-square me-1"></i>Sửa Banner
+        </span>
+        <span id="ws-connection-badge" class="badge bg-secondary-subtle text-white border border-light-subtle">
+            <span class="spinner-grow spinner-grow-sm me-1" role="status"></span> Live WS: Đang kết nối...
+        </span>
+    </div>
+</div>
+
+<!-- 2. ADMIN LIVE EDIT MODE BAR (Chỉ hiển thị cho ROLE_SUPER_ADMIN) -->
+<div th:if="${isSuperAdmin}" class="admin-live-bar d-flex align-items-center justify-content-between px-3">
+    <div class="d-flex align-items-center">
+        <span class="live-pulse-dot me-2"></span>
+        <strong>CHẾ ĐỘ QUẢN TRỊ TRỰC TIẾP (LIVE ADMIN EDIT MODE)</strong>
+        <span class="badge bg-dark ms-2">ROLE_SUPER_ADMIN</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <a href="#admin-live-cms-section" onclick="smoothScrollTo('admin-live-cms-section'); return false;" class="btn btn-sm btn-light py-0 fw-semibold">
+            <i class="bi bi-sliders me-1"></i> Tham Số Cấu Hình
+        </a>
+        <a href="#admin-recovery-section" onclick="smoothScrollTo('admin-recovery-section'); return false;" class="btn btn-sm btn-outline-light py-0 fw-semibold">
+            <i class="bi bi-arrow-counterclockwise me-1"></i> Phục Hồi Dữ Liệu
+            <span class="badge bg-warning text-dark ms-1" th:text="${#lists.size(softDeletedItems)}">0</span>
+        </a>
+    </div>
+</div>
+
+<!-- 3. TOP NAVIGATION BAR -->
+<nav class="navbar navbar-expand-lg navbar-blur sticky-top">
+    <div class="container-fluid px-3 px-lg-4">
+        <a class="navbar-brand navbar-brand-custom d-flex align-items-center" th:href="@{/dashboard}">
+            <i class="bi bi-shield-shaded text-primary fs-3 me-2"></i>
+            <span class="fw-bold">FinVault <span class="text-primary">Enterprise</span></span>
+        </a>
+
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNavbarContent">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="topNavbarContent">
+            <!-- Left Nav Links -->
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+                <li class="nav-item">
+                    <a class="nav-link active fw-semibold text-primary" th:href="@{/dashboard}">
+                        <i class="bi bi-speedometer2 me-1"></i> Tổng Quan
+                    </a>
+                </li>
+                <li th:if="${isFamilyHead or isSuperAdmin}" class="nav-item">
+                    <a class="nav-link fw-semibold text-success" href="#family-approval-section" onclick="smoothScrollTo('family-approval-section'); return false;">
+                        <i class="bi bi-people-fill me-1"></i> Quỹ Gia Đình
+                        <span class="badge bg-danger rounded-pill ms-1" id="nav-pending-badge" th:if="${#lists.size(pendingApprovals) > 0}" th:text="${#lists.size(pendingApprovals)}">0</span>
+                    </a>
+                </li>
+                <li th:if="${isSystemAuditor or isSuperAdmin}" class="nav-item">
+                    <a class="nav-link fw-semibold text-danger" href="#auditor-monitor-section" onclick="smoothScrollTo('auditor-monitor-section'); return false;">
+                        <i class="bi bi-fingerprint me-1"></i> Giám Sát Kiểm Toán
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Right Nav User Profile -->
+            <div class="d-flex align-items-center gap-3">
+                <!-- Data Masking Indicator for Auditor -->
+                <div th:if="${isSystemAuditor}" class="d-none d-md-flex align-items-center bg-danger-subtle text-danger px-2 py-1 rounded-2 small border border-danger-subtle">
+                    <i class="bi bi-eye-slash-fill me-1"></i>
+                    <span>Kiểm toán viên: <strong>Data Masking Đang Bật</strong></span>
+                </div>
+
+                <!-- User Dropdown -->
+                <div class="dropdown">
+                    <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center py-1 px-3 rounded-pill bg-white shadow-sm" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle fs-5 me-2 text-primary"></i>
+                        <span class="fw-semibold text-dark me-1" th:text="${currentUser != null ? currentUser.fullName : username}">Người dùng</span>
+                        <!-- Role Badge -->
+                        <span th:if="${isSuperAdmin}" class="badge bg-danger ms-1">Admin</span>
+                        <span th:if="${isSystemAuditor}" class="badge bg-dark ms-1">Auditor</span>
+                        <span th:if="${isFamilyHead}" class="badge bg-success ms-1">Gia Trưởng</span>
+                        <span th:if="${isStandardUser}" class="badge bg-primary ms-1">User</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2">
+                        <li class="dropdown-header">
+                            <div class="fw-bold text-dark" th:text="${username}">user</div>
+                            <div class="small text-muted" th:text="${currentUser != null ? currentUser.email : ''}">user@finvault.com</div>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createWalletModal">
+                                <i class="bi bi-wallet2 text-primary me-2"></i> Tạo Ví Mới
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransactionModal">
+                                <i class="bi bi-plus-circle text-success me-2"></i> Thêm Giao Dịch Nhanh
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransferModal">
+                                <i class="bi bi-arrow-left-right text-primary me-2"></i> Chuyển Tiền Liên Ví
+                            </button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li class="dropdown-header small text-muted text-uppercase">Chuyển Tài Khoản Thử Nghiệm:</li>
+                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-shield-shaded text-danger me-2"></i>admin (Super Admin)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-fingerprint text-dark me-2"></i>auditor (Auditor)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-people text-success me-2"></i>family_head (Gia Trưởng)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-person text-primary me-2"></i>user1 (Standard User)</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <form id="logoutForm" th:action="@{/logout}" method="post" style="display:none;">
+                                <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                            </form>
+                            <a class="dropdown-item text-danger d-flex align-items-center cursor-pointer" href="javascript:void(0)" onclick="document.getElementById('logoutForm').submit();">
+                                <i class="bi bi-box-arrow-right me-2"></i> Đăng Xuất An Toàn
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- 4. MAIN CONTAINER -->
+<main class="container-fluid px-3 px-lg-4 py-4">
+
+    <!-- KPI STAT CARDS ROW -->
+    <div class="row g-3 mb-4">
+        <!-- Card 1: Tổng số dư khả dụng -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="dashboard-card p-3 p-xl-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Tổng Số Dư Khả Dụng</span>
+                        <h3 class="fw-bold text-dark mt-1 mb-0" th:classappend="${isSystemAuditor ? 'masked-data' : ''}" th:text="${totalBalanceFormatted}">0 VND</h3>
+                    </div>
+                    <div class="p-2 bg-primary-subtle rounded-3 text-primary">
+                        <i class="bi bi-wallet2 fs-4"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2 d-flex align-items-center">
+                    <span th:if="${isSystemAuditor}" class="badge bg-danger-subtle text-danger me-1">Masked</span>
+                    <span th:unless="${isSystemAuditor}" class="text-success fw-semibold"><i class="bi bi-shield-check me-1"></i>Toàn vẹn sổ cái</span>
+                    <span class="ms-auto" th:text="${#lists.size(wallets)} + ' ví tài chính'">0 ví</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 2: Trạng thái Ngân sách 50/30/20 -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="dashboard-card p-3 p-xl-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Ngân Sách 50/30/20</span>
+                        <h3 class="fw-bold text-dark mt-1 mb-0" th:text="${#lists.size(activeBudgets)} + ' Hoạt Động'">0 Hoạt Động</h3>
+                    </div>
+                    <div class="p-2 bg-warning-subtle rounded-3 text-warning">
+                        <i class="bi bi-pie-chart fs-4"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2 d-flex align-items-center">
+                    <span class="text-primary fw-semibold"><i class="bi bi-broadcast me-1"></i>STOMP Cảnh báo 80%/100%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 3: Quỹ Mục Tiêu Tiết Kiệm -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="dashboard-card p-3 p-xl-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Mục Tiêu Tích Lũy</span>
+                        <h3 class="fw-bold text-dark mt-1 mb-0" th:text="${#lists.size(savingGoals)} + ' Quỹ Đang Chạy'">0 Quỹ</h3>
+                    </div>
+                    <div class="p-2 bg-success-subtle rounded-3 text-success">
+                        <i class="bi bi-piggy-bank fs-4"></i>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2 d-flex align-items-center">
+                    <span class="text-success fw-semibold"><i class="bi bi-graph-up-arrow me-1"></i>Kỷ luật tài chính CFP</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Card 4: Điểm Sức Khỏe Tài Chính CFP hoặc Kiểm Toán -->
+        <div class="col-12 col-sm-6 col-xl-3">
+            <div class="dashboard-card p-3 p-xl-4 h-100">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <span class="text-muted small fw-semibold text-uppercase">Sức Khỏe Tài Chính CFP</span>
+                        <h3 class="fw-bold text-dark mt-1 mb-0">
+                            <span th:text="${healthScore != null ? healthScore.totalScore : '85'}">85</span><span class="fs-6 text-muted">/100</span>
+                        </h3>
+                    </div>
+                    <div class="p-2 bg-info-subtle rounded-3 text-info">
+                        <i class="bi bi-activity fs-4"></i>
+                    </div>
+                </div>
+                <div class="small mt-2 d-flex align-items-center">
+                    <span class="badge"
+                          th:classappend="${healthScore == null or healthScore.healthGrade == 'EXCELLENT' ? 'bg-success' : (healthScore.healthGrade == 'GOOD' ? 'bg-primary' : (healthScore.healthGrade == 'FAIR' ? 'bg-warning text-dark' : 'bg-danger'))}"
+                          th:text="${healthScore != null ? healthScore.healthGrade : 'EXCELLENT'}">EXCELLENT</span>
+                    <span class="ms-2 text-muted small text-truncate">4 Trụ Cột Đánh Giá</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 5. KHỐI IN-PLACE RBAC: GIA TRƯỞNG (ROLE_FAMILY_HEAD / SUPER_ADMIN)    -->
+    <!-- ===================================================================== -->
+    <div th:if="${isFamilyHead or isSuperAdmin}" id="family-approval-section" class="mb-4">
+        <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-success">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="p-2 bg-success-subtle rounded-3 text-success me-3">
+                        <i class="bi bi-people-fill fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">Bảng Phê Duyệt Chi Tiêu Gia Đình (Ngưỡng &ge; 5.000.000 VND)</h5>
+                        <p class="text-muted small mb-0">Dành riêng cho Gia trưởng: Phê duyệt giải ngân hoặc từ chối trực tiếp</p>
+                    </div>
+                </div>
+                <span class="badge bg-danger rounded-pill px-3 py-2 fs-6" id="pending-approvals-count" th:text="${#lists.size(pendingApprovals)}">0</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">ID</th>
+                            <th>Thành Viên Yêu Cầu</th>
+                            <th>Ví Nguồn Gia Đình</th>
+                            <th>Số Tiền Chi Tiêu</th>
+                            <th>Nội Dung / Mục Đích</th>
+                            <th class="text-end pe-4">Thao Tác Trực Tiếp</th>
+                        </tr>
+                        </thead>
+                        <tbody id="pending-approvals-tbody">
+                        <tr th:if="${#lists.isEmpty(pendingApprovals)}">
+                            <td colspan="6" class="text-center text-muted py-4">
+                                <i class="bi bi-check2-circle fs-3 text-success d-block mb-1"></i>
+                                Hiện không có giao dịch gia đình nào cần phê duyệt.
+                            </td>
+                        </tr>
+                        <tr th:each="tx : ${pendingApprovals}" th:id="'pending-tx-row-' + ${tx.id}">
+                            <td class="ps-4 fw-bold" th:text="'#' + ${tx.id}">#1</td>
+                            <td>
+                                <span class="badge bg-light text-dark border">
+                                    <i class="bi bi-person me-1"></i>Thành viên gia đình
+                                </span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-success" th:text="${tx.walletName}">Quỹ Gia Đình</span>
+                            </td>
+                            <td>
+                                <strong class="text-danger" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                                        th:text="${#numbers.formatDecimal(tx.amount, 0, 'COMMA', 0, 'POINT')} + ' VND'">7,500,000 VND</strong>
+                            </td>
+                            <td th:text="${tx.note}">Mua sắm thiết bị gia đình</td>
+                            <td class="text-end pe-4">
+                                <button type="button" class="btn btn-sm btn-success fw-semibold me-1 shadow-sm"
+                                        th:onclick="'decideFamilyTransaction(' + ${tx.id} + ', true)'">
+                                    <i class="bi bi-check-lg me-1"></i>Phê Duyệt
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger fw-semibold shadow-sm"
+                                        th:onclick="'decideFamilyTransaction(' + ${tx.id} + ', false)'">
+                                    <i class="bi bi-x-lg me-1"></i>Từ Chối
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 6. KHỐI IN-PLACE RBAC: KIỂM TOÁN VIÊN (ROLE_SYSTEM_AUDITOR / ADMIN)   -->
+    <!-- ===================================================================== -->
+    <div th:if="${isSystemAuditor or isSuperAdmin}" id="auditor-monitor-section" class="mb-4">
+        <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-dark">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="p-2 bg-dark-subtle rounded-3 text-dark me-3">
+                        <i class="bi bi-fingerprint fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">Bảng Giám Sát An Ninh & Kiểm Toán Thời Gian Thực (Audit Trail)</h5>
+                        <p class="text-muted small mb-0">Tự động kích hoạt Data Masking số dư & Giám sát các tài khoản bị khóa Brute-Force</p>
+                    </div>
+                </div>
+                <span class="badge bg-dark px-3 py-2">Bảo Mật Cấp Enterprise</span>
+            </div>
+            <div class="card-body pt-0">
+                <div class="row g-3">
+                    <!-- Bảng tài khoản đang bị khóa do nhập sai mật khẩu quá 5 lần -->
+                    <div class="col-12 col-xl-4">
+                        <div class="border rounded-3 p-3 bg-light h-100">
+                            <h6 class="fw-bold text-dark d-flex align-items-center mb-3">
+                                <i class="bi bi-shield-slash-fill text-danger me-2"></i>Tài Khoản Bị Khóa (Brute-Force)
+                            </h6>
+                            <div class="table-responsive" style="max-height: 250px;">
+                                <table class="table table-sm table-hover mb-0">
+                                    <thead>
+                                    <tr>
+                                        <th>Tài khoản</th>
+                                        <th>Thời gian</th>
+                                        <th th:if="${isSuperAdmin}" class="text-end">Mở khóa</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:if="${#lists.isEmpty(lockedAccounts)}">
+                                        <td colspan="3" class="text-center text-muted py-3 small">
+                                            <i class="bi bi-shield-check text-success me-1"></i>Không có tài khoản nào bị khóa.
+                                        </td>
+                                    </tr>
+                                    <tr th:each="user : ${lockedAccounts}" th:id="'locked-user-row-' + ${user.username}">
+                                        <td>
+                                            <strong th:text="${user.username}">user</strong>
+                                            <div class="small text-muted" th:text="${user.email}">user@finvault.com</div>
+                                        </td>
+                                        <td class="small text-muted" th:text="${#temporals.format(user.lockedUntil, 'dd/MM HH:mm')}">--</td>
+                                        <td th:if="${isSuperAdmin}" class="text-end">
+                                            <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 small"
+                                                    th:onclick="'unlockUserAccount(\'' + ${user.username} + '\')'">
+                                                Mở khóa
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bảng 50 Audit Logs gần nhất -->
+                    <div class="col-12 col-xl-8">
+                        <div class="border rounded-3 p-3 bg-light h-100">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold text-dark mb-0">
+                                    <i class="bi bi-clock-history text-primary me-2"></i>Nhật Ký Kiểm Toán Gần Nhất
+                                </h6>
+                                <span class="badge bg-primary-subtle text-primary" th:text="${#lists.size(recentAuditLogs)} + ' Sự kiện'">0 Sự kiện</span>
+                            </div>
+                            <div class="table-responsive" style="max-height: 250px;">
+                                <table class="table table-sm table-hover align-middle mb-0">
+                                    <thead>
+                                    <tr>
+                                        <th>Thời Gian</th>
+                                        <th>Người Dùng</th>
+                                        <th>Hành Động</th>
+                                        <th>Phân Hệ</th>
+                                        <th>IP Client</th>
+                                        <th>Trạng Thái</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr th:if="${#lists.isEmpty(recentAuditLogs)}">
+                                        <td colspan="6" class="text-center text-muted py-3 small">Chưa có nhật ký kiểm toán.</td>
+                                    </tr>
+                                    <tr th:each="log : ${recentAuditLogs}">
+                                        <td class="small" th:text="${#temporals.format(log.timestamp, 'HH:mm:ss dd/MM')}">12:00:00</td>
+                                        <td class="fw-semibold small" th:text="${log.actorUsername}">admin</td>
+                                        <td><span class="badge bg-secondary small" th:text="${log.action}">ACTION</span></td>
+                                        <td class="small text-muted" th:text="${log.targetModule}">MODULE</td>
+                                        <td class="small text-muted font-monospace" th:text="${log.ipAddress}">127.0.0.1</td>
+                                        <td>
+                                            <span class="badge" th:classappend="${log.status == 'SUCCESS' ? 'bg-success' : 'bg-danger'}" th:text="${log.status}">SUCCESS</span>
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 7. KHỐI IN-PLACE RBAC: SUPER ADMIN LIVE CMS & DATA RECOVERY           -->
+    <!-- ===================================================================== -->
+    <div th:if="${isSuperAdmin}" id="admin-live-cms-section" class="mb-4">
+        <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-danger">
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
+                <div class="d-flex align-items-center">
+                    <div class="p-2 bg-danger-subtle rounded-3 text-danger me-3">
+                        <i class="bi bi-sliders fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">Live Admin CMS - Quản Trị Tham Số Cấu Hình Trực Tiếp</h5>
+                        <p class="text-muted small mb-0">Chỉnh sửa tham số thời gian thực không cần restart ứng dụng</p>
+                    </div>
+                </div>
+                <span class="badge bg-danger">Chỉ Super Admin</span>
+            </div>
+            <div class="card-body pt-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>Tham Số (Key)</th>
+                            <th>Giá Trị Hiện Tại</th>
+                            <th>Nhóm Cấu Hình</th>
+                            <th>Mô Tả Nghiệp Vụ</th>
+                            <th class="text-end">Cập Nhật Trực Tiếp</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:each="cfg : ${systemConfigs}">
+                            <td><strong class="font-monospace text-dark" th:text="${cfg.configKey}">KEY</strong></td>
+                            <td>
+                                <span class="badge bg-primary-subtle text-primary fs-6 font-monospace" th:text="${cfg.configValue}">VALUE</span>
+                            </td>
+                            <td><span class="badge bg-light text-dark border" th:text="${cfg.configGroup}">GROUP</span></td>
+                            <td class="small text-muted" th:text="${cfg.description}">Mô tả cấu hình</td>
+                            <td class="text-end">
+                                <button type="button" class="btn btn-sm btn-outline-primary"
+                                        th:data-key="${cfg.configKey}"
+                                        th:data-val="${cfg.configValue}"
+                                        th:data-group="${cfg.configGroup}"
+                                        th:data-desc="${cfg.description}"
+                                        onclick="openEditConfigFromButton(this)">
+                                    <i class="bi bi-pencil-square me-1"></i>Chỉnh sửa
+                                </button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Phục hồi dữ liệu xóa mềm (Soft Delete Recovery) -->
+                <div id="admin-recovery-section" class="mt-4 pt-3 border-top">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-dark mb-0">
+                            <i class="bi bi-recycle text-warning me-2"></i>Bảng Phục Hồi Dữ Liệu Bị Xóa Mềm (Soft Delete Recovery)
+                        </h6>
+                        <span class="badge bg-warning text-dark" th:text="${#lists.size(softDeletedItems)} + ' Mục đã xóa'">0 Mục</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>Loại Dữ Liệu</th>
+                                <th>ID Gốc</th>
+                                <th>Tiêu Đề / Tên Đối Tượng</th>
+                                <th>Chủ Sở Hữu</th>
+                                <th>Thời Gian Xóa</th>
+                                <th class="text-end">Thao Tác</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:if="${#lists.isEmpty(softDeletedItems)}">
+                                <td colspan="6" class="text-center text-muted py-3 small">
+                                    <i class="bi bi-shield-check text-success me-1"></i>Thùng rác hệ thống đang trống.
+                                </td>
+                            </tr>
+                            <tr th:each="item : ${softDeletedItems}" th:id="'deleted-item-row-' + ${item.itemType} + '-' + ${item.itemId}">
+                                <td><span class="badge bg-secondary font-monospace" th:text="${item.itemType}">WALLET</span></td>
+                                <td class="font-monospace small" th:text="'#' + ${item.itemId}">#1</td>
+                                <td class="fw-semibold text-dark" th:text="${item.title}">Tên ví / giao dịch</td>
+                                <td class="small" th:text="${item.ownerUsername}">user1</td>
+                                <td class="small text-muted" th:text="${#temporals.format(item.deletedAt, 'dd/MM/yyyy HH:mm')}">--</td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-success py-0 px-2 fw-semibold"
+                                            th:onclick="'restoreSoftDeletedItem(\'' + ${item.itemType} + '\', ' + ${item.itemId} + ')'">
+                                        <i class="bi bi-arrow-counterclockwise me-1"></i>Khôi Phục
+                                    </button>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- 8. KHỐI TÀI CHÍNH CÁ NHÂN & BI CHUNG CHO TẤT CẢ NGƯỜI DÙNG            -->
+    <!-- ===================================================================== -->
+    <div class="row g-4">
+        <!-- CỘT TRÁI (8 Cột): Ví, Biểu đồ BI Chart.js, Sổ cái Giao dịch -->
+        <div class="col-12 col-xl-8">
+
+            <!-- Danh sách Ví Tài Chính -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="fw-bold text-dark mb-0 d-flex align-items-center">
+                    <i class="bi bi-wallet2 text-primary me-2"></i>Ví & Quỹ Tài Chính Của Bạn
+                </h5>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#createWalletModal">
+                        <i class="bi bi-wallet-fill me-1"></i>Tạo Ví Mới
+                    </button>
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickTransferModal">
+                        <i class="bi bi-arrow-left-right me-1"></i>Chuyển Tiền Liên Ví
+                    </button>
+                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#quickTransactionModal">
+                        <i class="bi bi-plus-lg me-1"></i>Giao Dịch Mới
+                    </button>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div th:each="w : ${wallets}" class="col-12 col-md-6 col-lg-4">
+                    <div class="dashboard-card p-3 h-100" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'wallet-card family-fund-card' : 'wallet-card'}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'bg-success' : 'bg-primary'}" th:text="${w.walletType}">CASH</span>
+                            <small class="text-muted" th:text="${w.currency}">VND</small>
+                        </div>
+                        <h6 class="fw-bold text-dark mb-1 text-truncate" th:text="${w.walletName}">Ví Tiền Mặt</h6>
+                        <h4 class="fw-bold text-dark mb-2" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                            th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency)}">8,500,000 VND</h4>
+                        <div class="small text-muted" th:if="${w.accountNumber != null}">
+                            STK: <span class="font-monospace" th:text="${isSystemAuditor ? '****8901' : w.accountNumber}">1903456789</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BI Chart.js Visualizations (Tabbed) -->
+            <div class="dashboard-card p-4 mb-4">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">Biểu Đồ Phân Tích Dòng Tiền (BI Analytics)</h5>
+                        <p class="text-muted small mb-0">Dữ liệu thời gian thực được đồng bộ tự động với sổ cái</p>
+                    </div>
+                    <ul class="nav nav-pills mt-2 mt-sm-0" id="chartTabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active py-1 px-3 small fw-semibold" id="daily-tab" data-bs-toggle="pill" data-bs-target="#daily-chart-pane" type="button">Theo Ngày</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link py-1 px-3 small fw-semibold" id="monthly-tab" data-bs-toggle="pill" data-bs-target="#monthly-chart-pane" type="button">12 Tháng</button>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="tab-content" id="chartTabsContent">
+                    <div class="tab-pane fade show active" id="daily-chart-pane" role="tabpanel">
+                        <div style="height: 280px; position: relative;">
+                            <canvas id="dailyCashFlowChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="monthly-chart-pane" role="tabpanel">
+                        <div style="height: 280px; position: relative;">
+                            <canvas id="monthlyCashFlowChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sổ cái 10 Giao dịch gần nhất & Export -->
+            <div class="dashboard-card p-4">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">Lịch Sử Giao Dịch Gần Nhất</h5>
+                        <p class="text-muted small mb-0">Giao dịch được bảo vệ ACID và chống Race Condition</p>
+                    </div>
+                    <div class="d-flex gap-2 mt-2 mt-sm-0">
+                        <a th:href="@{/api/reports/transactions/export/excel}" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
+                        </a>
+                        <a th:href="@{/api/reports/financial-statement/pdf}" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Báo Cáo PDF
+                        </a>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>Loại</th>
+                            <th>Danh Mục</th>
+                            <th>Ví Tài Chính</th>
+                            <th>Số Tiền</th>
+                            <th>Ngày Giao Dịch</th>
+                            <th>Trạng Thái</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr th:if="${#lists.isEmpty(recentTransactions)}">
+                            <td colspan="6" class="text-center text-muted py-4">Chưa có giao dịch nào được ghi nhận.</td>
+                        </tr>
+                        <tr th:each="tx : ${recentTransactions}">
+                            <td>
+                                <span class="badge" th:classappend="${tx.transactionType == 'INCOME' ? 'bg-success-subtle text-success' : (tx.transactionType == 'EXPENSE' ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary')}"
+                                      th:text="${tx.transactionType}">INCOME</span>
+                            </td>
+                            <td>
+                                <span class="fw-semibold text-dark" th:text="${tx.categoryName}">Danh mục</span>
+                                <div class="small text-muted" th:text="${tx.note}">Ghi chú</div>
+                            </td>
+                            <td class="small" th:text="${tx.walletName}">Ví chính</td>
+                            <td>
+                                <strong th:classappend="${isSystemAuditor ? 'masked-data' : (tx.transactionType == 'INCOME' ? 'text-success' : 'text-danger')}"
+                                        th:text="${isSystemAuditor ? '***,*** VND' : ((tx.transactionType == 'INCOME' ? '+' : '-') + #numbers.formatDecimal(tx.amount, 0, 'COMMA', 0, 'POINT') + ' VND')}">
+                                    +30,000,000 VND
+                                </strong>
+                            </td>
+                            <td class="small text-muted" th:text="${#temporals.format(tx.transactionDate, 'dd/MM/yyyy HH:mm')}">16/10/2026</td>
+                            <td>
+                                <span class="badge" th:classappend="${tx.approvalStatus == 'APPROVED' ? 'bg-success' : (tx.approvalStatus == 'PENDING' ? 'bg-warning text-dark' : 'bg-danger')}"
+                                      th:text="${tx.approvalStatus}">APPROVED</span>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- CỘT PHẢI (4 Cột): Điểm CFP, Ngân sách 50/30/20, Quỹ Tiết Kiệm, Cơ cấu chi -->
+        <div class="col-12 col-xl-4">
+
+            <!-- Widget 1: Điểm Sức Khỏe Tài Chính CFP 4 Trụ Cột -->
+            <div class="dashboard-card p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3">Sức Khỏe Tài Chính (CFP)</h5>
+                <div class="d-flex align-items-center mb-3">
+                    <div class="health-score-circle me-3"
+                         th:classappend="${healthScore == null or healthScore.healthGrade == 'EXCELLENT' ? 'grade-excellent' : (healthScore.healthGrade == 'GOOD' ? 'grade-good' : (healthScore.healthGrade == 'FAIR' ? 'grade-fair' : 'grade-poor'))}">
+                        <span class="display-6 fw-bold" th:text="${healthScore != null ? healthScore.totalScore : '85'}">85</span>
+                        <small class="text-uppercase" style="font-size: 0.65rem;" th:text="${healthScore != null ? healthScore.healthGrade : 'EXCELLENT'}">EXCELLENT</small>
+                    </div>
+                    <div>
+                        <p class="small text-muted mb-1" th:text="${healthScore != null ? healthScore.summaryAssessment : 'Tình trạng tài chính rất tốt! Dòng tiền ổn định và khả năng phòng thủ rủi ro cao.'}">Đánh giá chung</p>
+                    </div>
+                </div>
+
+                <!-- 4 Trụ Cột Progress -->
+                <div class="small">
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>1. Tỷ Lệ Tiết Kiệm (Savings)</span>
+                        <strong th:text="${healthScore != null ? healthScore.savingsRateScore + '/30' : '25/30'}">25/30</strong>
+                    </div>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-success" style="width: 83%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>2. Kỷ Luật Ngân Sách</span>
+                        <strong th:text="${healthScore != null ? healthScore.budgetAdherenceScore + '/25' : '20/25'}">20/25</strong>
+                    </div>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-primary" style="width: 80%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>3. Quỹ Dự Phòng Khẩn Cấp</span>
+                        <strong th:text="${healthScore != null ? healthScore.emergencyFundScore + '/25' : '20/25'}">20/25</strong>
+                    </div>
+                    <div class="progress mb-2" style="height: 6px;">
+                        <div class="progress-bar bg-info" style="width: 80%;"></div>
+                    </div>
+
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>4. Gánh Nặng Nợ (DTI)</span>
+                        <strong th:text="${healthScore != null ? healthScore.debtToIncomeScore + '/20' : '20/20'}">20/20</strong>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar bg-warning" style="width: 100%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget 2: Ngân Sách Thông Minh 50/30/20 (Có Live WebSocket Updates) -->
+            <div class="dashboard-card p-4 mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0">Ngân Sách 50/30/20</h5>
+                    <span class="badge bg-light text-dark border">
+                        <i class="bi bi-broadcast text-danger me-1"></i>Live STOMP
+                    </span>
+                </div>
+
+                <div th:if="${#lists.isEmpty(activeBudgets)}" class="text-center text-muted py-3 small">
+                    Chưa kích hoạt gói ngân sách 50/30/20.
+                </div>
+
+                <div th:each="b : ${activeBudgets}" class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1 small">
+                        <span class="fw-semibold text-dark" th:text="${b.budgetName}">Thiết Yếu (Needs 50%)</span>
+                        <span th:id="'budget-percent-' + ${b.id}" class="badge"
+                              th:classappend="${b.spentPercentage >= 100 ? 'bg-danger' : (b.spentPercentage >= 80 ? 'bg-warning text-dark' : 'bg-primary')}"
+                              th:text="${#numbers.formatDecimal(b.spentPercentage, 1, 1)} + '%'">45.3%</span>
+                    </div>
+                    <div class="progress progress-budget mb-1">
+                        <div th:id="'budget-progress-' + ${b.id}"
+                             class="progress-bar"
+                             th:classappend="${b.spentPercentage >= 100 ? 'bg-danger' : (b.spentPercentage >= 80 ? 'bg-warning' : 'bg-primary')}"
+                             role="progressbar"
+                             th:style="'width: ' + ${b.spentPercentage > 100 ? 100 : b.spentPercentage} + '%;'">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+                        <span th:id="'budget-spent-' + ${b.id}" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                              th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(b.currentSpent, 0, 'COMMA', 0, 'POINT') + ' VND')}">6,800,000 VND</span>
+                        <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                              th:text="'Trần: ' + (isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(b.limitAmount, 0, 'COMMA', 0, 'POINT') + ' VND'))">Trần: 15,000,000 VND</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget 3: Quỹ Mục Tiêu Tiết Kiệm (Saving Goals) -->
+            <div class="dashboard-card p-4 mb-4">
+                <h5 class="fw-bold text-dark mb-3">Mục Tiêu Tiết Kiệm</h5>
+                <div th:if="${#lists.isEmpty(savingGoals)}" class="text-center text-muted py-3 small">
+                    Chưa tạo mục tiêu tiết kiệm nào.
+                </div>
+                <div th:each="g : ${savingGoals}" class="mb-3 p-3 bg-light rounded-3 border">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <strong class="text-dark small" th:text="${g.goalName}">Quỹ Dự Phòng</strong>
+                        <span class="badge bg-success" th:text="${g.status}">IN_PROGRESS</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-success"
+                             role="progressbar"
+                             th:style="'width: ' + ${g.progressPercentage > 100 ? 100 : g.progressPercentage} + '%;'">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted" style="font-size: 0.75rem;">
+                        <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                              th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(g.currentAmount, 0, 'COMMA', 0, 'POINT') + ' VND')}">45,000,000 VND</span>
+                        <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                              th:text="'Mục tiêu: ' + (isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(g.targetAmount, 0, 'COMMA', 0, 'POINT') + ' VND'))">100,000,000 VND</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Widget 4: Tỷ Trọng Chi Tiêu Theo Danh Mục (Doughnut Chart) -->
+            <div class="dashboard-card p-4">
+                <h5 class="fw-bold text-dark mb-3">Cơ Cấu Chi Tiêu (Danh Mục)</h5>
+                <div style="height: 220px; position: relative;">
+                    <canvas id="categoryDoughnutChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<!-- 9. FOOTER -->
+<footer class="py-3 mt-auto">
+    <div class="container-fluid px-4 d-flex flex-column flex-sm-row justify-content-between align-items-center text-muted small">
+        <div>
+            &copy; 2026 <strong>FinVault Enterprise</strong>. Architecture Core & In-Place Multi-Role RBAC.
+        </div>
+        <div class="mt-2 mt-sm-0">
+            <span>Spring Boot 3.3.4 | Java 21 LTS | H2 Persistent | AES-256-GCM | STOMP SockJS</span>
+        </div>
+    </div>
+</footer>
+
+<!-- ========================================================================= -->
+<!-- MODALS                                                                    -->
+<!-- ========================================================================= -->
+
+<!-- MODAL 0: CREATE WALLET -->
+<div class="modal fade" id="createWalletModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-wallet2 text-success me-2"></i>Khởi Tạo Ví Tài Chính Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="createWalletForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên Ví Tài Chính *</label>
+                        <input type="text" class="form-control" id="newWalletName" placeholder="Ví dụ: Ví Tiền Mặt, Thẻ VCB, Quỹ Tiết Kiệm..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại Ví *</label>
+                        <select class="form-select" id="newWalletType" required>
+                            <option value="CASH">Ví Tiền Mặt (CASH)</option>
+                            <option value="BANK">Tài Khoản Ngân Hàng (BANK)</option>
+                            <option value="CREDIT_CARD">Thẻ Tín Dụng (CREDIT_CARD)</option>
+                            <option value="FAMILY_FUND">Quỹ Chung Gia Đình (FAMILY_FUND)</option>
+                            <option value="SAVINGS">Sổ Tiết Kiệm Tích Lũy (SAVINGS)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Dư Ban Đầu (VND)</label>
+                        <input type="number" class="form-control" id="newWalletInitialBalance" placeholder="0" min="0" step="1000" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên Ngân Hàng (Nếu là ví BANK)</label>
+                        <input type="text" class="form-control" id="newWalletBankName" placeholder="Ví dụ: Vietcombank, Techcombank, MB Bank...">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tài Khoản (Nếu là ví BANK)</label>
+                        <input type="text" class="form-control font-monospace" id="newWalletAccountNumber" placeholder="Ví dụ: 19034567890123">
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-success fw-semibold"><i class="bi bi-wallet2 me-1"></i>Tạo Ví Mới</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 1: QUICK TRANSACTION -->
+<div class="modal fade" id="quickTransactionModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle text-primary me-2"></i>Thêm Giao Dịch Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickTransactionForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại Giao Dịch</label>
+                        <select class="form-select" id="txType" required>
+                            <option value="EXPENSE">Chi tiêu (Expense)</option>
+                            <option value="INCOME">Thu nhập (Income)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ví Tài Chính</label>
+                        <select class="form-select" id="txWalletId" required>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName + ' (' + w.currency + ')'}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Danh Mục Thu Chi</label>
+                        <select class="form-select" id="txCategoryId" required>
+                            <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.categoryName}">Danh mục</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tiền (VND)</label>
+                        <input type="number" class="form-control" id="txAmount" placeholder="Ví dụ: 350000" min="1000" step="1000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ngày Giao Dịch</label>
+                        <input type="date" class="form-control" id="txDate">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi Chú / Mô Tả</label>
+                        <input type="text" class="form-control" id="txNote" placeholder="Ví dụ: Ăn trưa tiếp khách, mua thiết bị...">
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-check2-circle me-1"></i>Lưu Giao Dịch</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 2: QUICK TRANSFER -->
+<div class="modal fade" id="quickTransferModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-left-right text-primary me-2"></i>Chuyển Tiền Liên Ví</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="quickTransferForm">
+                <div class="modal-body">
+                    <div class="alert alert-info small py-2">
+                        <i class="bi bi-shield-check me-1"></i>Giao dịch áp dụng thuật toán Global Resource Ordering chống Deadlock.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ví Nguồn (Trừ Tiền)</label>
+                        <select class="form-select" id="transferSourceWalletId" required>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName + ' (Dư: ' + #numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency + ')'}">Ví nguồn</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ví Đích (Cộng Tiền)</label>
+                        <select class="form-select" id="transferTargetWalletId" required>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName}">Ví đích</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tiền Chuyển (VND)</label>
+                        <input type="number" class="form-control" id="transferAmount" placeholder="Ví dụ: 2000000" min="1000" step="1000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi Chú</label>
+                        <input type="text" class="form-control" id="transferNote" placeholder="Ví dụ: Trích lương sang ví tiết kiệm">
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-arrow-left-right me-1"></i>Xác Nhận Chuyển</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 3: SUPER ADMIN LIVE CONFIG EDIT -->
+<div th:if="${isSuperAdmin}" class="modal fade" id="editConfigModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders text-danger me-2"></i>Chỉnh Sửa Tham Số Hệ Thống</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="liveConfigForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Khóa Tham Số (Key)</label>
+                        <input type="text" class="form-control font-monospace bg-light" id="liveConfigKey" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Giá Trị Cấu Hình Mới *</label>
+                        <input type="text" class="form-control font-monospace" id="liveConfigValue" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nhóm Cấu Hình</label>
+                        <input type="text" class="form-control bg-light" id="liveConfigGroup" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Mô Tả Nghiệp Vụ</label>
+                        <textarea class="form-control" id="liveConfigDesc" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger fw-semibold"><i class="bi bi-save me-1"></i>Lưu Thời Gian Thực</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript Dependencies: Bootstrap 5, Chart.js, SockJS, Stomp.js -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+<!-- Custom App Scripts -->
+<script th:src="@{/js/websocket-alerts.js}" src="/js/websocket-alerts.js"></script>
+<script th:src="@{/js/dashboard.js}" src="/js/dashboard.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,126 @@
+# ==============================================================================
+# FinVault Enterprise - Application Configuration
+# Enterprise Personal & Family Wealth Management System
+# ==============================================================================
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+  servlet:
+    context-path: /
+    session:
+      timeout: 60m
+      cookie:
+        http-only: true
+        secure: false # Set true in HTTPS production
+        same-site: lax
+
+spring:
+  application:
+    name: finvault-system
+
+  # Datasource Configuration (H2 File Persistence for Local, easily switchable to MySQL/Postgres)
+  datasource:
+    url: jdbc:h2:file:./data/finvaultdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER,VALUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+
+  # H2 Web Console Configuration
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
+        trace: false
+
+  # JPA & Hibernate Settings
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Ho_Chi_Minh
+    open-in-view: false
+    defer-datasource-initialization: true
+
+  # SQL Initialization (Runs schema and initial seed data)
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+      data-locations: classpath:data.sql
+      continue-on-error: true
+
+  # Thymeleaf Template Engine Configuration
+  thymeleaf:
+    cache: false
+    mode: HTML
+    encoding: UTF-8
+    prefix: classpath:/templates/
+    suffix: .html
+
+  # File Upload Limits (Receipts & Batch Excel Import)
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 15MB
+
+# ==============================================================================
+# Custom FinVault Enterprise Security & Business Rules Configuration
+# ==============================================================================
+finvault:
+  system:
+    name: "FinVault Enterprise Wealth Management"
+    version: "1.0.0-PROD"
+    environment: "DEVELOPMENT"
+
+  # AES-256-GCM Configuration for JPA Attribute Encryption
+  # 256-bit key represented in Hex format (32 bytes = 64 hex characters)
+  crypto:
+    aes-secret-key: "${FINVAULT_AES_KEY:4f8b2c1e7a9d0f3b5e8a1c4d7f0b2e5a8d1c4f7b0e3a6c9d2f5b8e1a4d7c0f3e}"
+
+  # Two-Factor Authentication (TOTP / Google Authenticator)
+  security:
+    totp:
+      issuer: "FinVault Enterprise"
+      window-size: 3
+    brute-force:
+      max-failed-attempts: 5
+      lock-duration-minutes: 15
+
+  # Rate Limiter Configuration (Bucket4j Sliding Window)
+  rate-limit:
+    requests-per-minute: 120
+    burst-capacity: 150
+
+  # Family Ledger Approval & Threshold
+  family:
+    approval-threshold-vnd: 5000000.00 # Giao dịch trên 5.000.000 VND cần Family Head phê duyệt
+
+  # Smart Budget Alert Thresholds (Strategy Pattern)
+  budget:
+    warning-threshold-percent: 80.0
+    critical-threshold-percent: 100.0
+
+# Springdoc OpenAPI (Swagger UI) Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+# Logging Configuration
+logging:
+  level:
+    root: INFO
+    com.finvault: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: WARN

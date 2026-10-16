@@ -1,0 +1,2 @@
+com\finvault\module2_wallet_ledger\event\UserRegistrationEventListener.class
+com\finvault\module1_security_rbac\event\UserRegisteredEvent.class

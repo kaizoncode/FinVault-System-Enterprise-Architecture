@@ -1,0 +1,280 @@
+package com.finvault.config;
+
+import com.finvault.common.SecurityUtils;
+import com.finvault.module1_security_rbac.entity.User;
+import com.finvault.module1_security_rbac.service.BruteForceProtectionService;
+import com.finvault.module1_security_rbac.service.CustomUserDetailsService;
+import com.finvault.module5_admin_audit.entity.AuditLog;
+import com.finvault.module5_admin_audit.repository.AuditLogRepository;
+import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AuthenticationFailureHandler;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+
+import java.util.stream.Collectors;
+
+/**
+ * ==============================================================================
+ * [Owner: Member 1 - Security & IAM Module]
+ * SecurityConfig: Cấu hình Spring Security 6 FilterChain, RBAC 4 Roles,
+ * Tích hợp CustomUserDetailsService, Brute-force Login Protection, 2FA Redirection,
+ * Session-based Authentication, Form Login, Audit Log đăng nhập/đăng xuất và Exception Handling chuẩn.
+ *
+ * Điểm chờ nâng cấp (Extension Point):
+ * - Tích hợp PasskeyAuthenticationProvider cho WebAuthn Passwordless Login (v2.0)
+ * ==============================================================================
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
+public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+
+    private final CustomUserDetailsService userDetailsService;
+    private final BruteForceProtectionService bruteForceProtectionService;
+    private final AuditLogRepository auditLogRepository;
+
+    public SecurityConfig(
+            CustomUserDetailsService userDetailsService,
+            BruteForceProtectionService bruteForceProtectionService,
+            AuditLogRepository auditLogRepository) {
+        this.userDetailsService = userDetailsService;
+        this.bruteForceProtectionService = bruteForceProtectionService;
+        this.auditLogRepository = auditLogRepository;
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public DaoAuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder());
+        authProvider.setHideUserNotFoundExceptions(false);
+        return authProvider;
+    }
+
+    @Bean
+    public AuthenticationFailureHandler authenticationFailureHandler() {
+        return (request, response, exception) -> {
+            String username = request.getParameter("username");
+            String clientIp = SecurityUtils.getClientIpAddress(request);
+            String userAgent = SecurityUtils.getClientUserAgent(request);
+            log.warn("Đăng nhập thất bại đối với tài khoản [{}] từ IP [{}]: {}", username, clientIp, exception.getMessage());
+
+            // Ghi vết kiểm toán đăng nhập thất bại vào Database Audit Trail
+            try {
+                AuditLog failLog = new AuditLog(
+                        (username != null && !username.isBlank()) ? username.trim() : "ANONYMOUS",
+                        "ANONYMOUS",
+                        "LOGIN_FAILED",
+                        "IAM_SECURITY",
+                        "app_users",
+                        null,
+                        null,
+                        "Đăng nhập thất bại từ IP: " + clientIp,
+                        clientIp,
+                        userAgent,
+                        "FAILED",
+                        exception != null ? exception.getMessage() : "Bad credentials"
+                );
+                auditLogRepository.save(failLog);
+            } catch (Exception ex) {
+                log.error("Không thể ghi vết kiểm toán đăng nhập thất bại: {}", ex.getMessage());
+            }
+
+            if (username != null && !username.isBlank()) {
+                bruteForceProtectionService.recordFailedLogin(username.trim());
+                if (bruteForceProtectionService.isAccountLocked(username.trim())) {
+                    long remaining = bruteForceProtectionService.getRemainingLockMinutes(username.trim());
+                    response.sendRedirect(request.getContextPath() + "/login?locked=true&remainingMinutes=" + remaining);
+                    return;
+                }
+            }
+            response.sendRedirect(request.getContextPath() + "/login?error=true");
+        };
+    }
+
+    @Bean
+    public AuthenticationSuccessHandler authenticationSuccessHandler() {
+        return (request, response, authentication) -> {
+            String username = authentication.getName();
+            String clientIp = SecurityUtils.getClientIpAddress(request);
+            String userAgent = SecurityUtils.getClientUserAgent(request);
+            String role = authentication.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .collect(Collectors.joining(","));
+
+            // Ghi vết kiểm toán đăng nhập thành công vào Database Audit Trail
+            try {
+                AuditLog successLog = new AuditLog(
+                        username,
+                        role.isEmpty() ? "ROLE_STANDARD_USER" : role,
+                        "LOGIN_SUCCESS",
+                        "IAM_SECURITY",
+                        "app_users",
+                        null,
+                        null,
+                        "Đăng nhập thành công từ IP: " + clientIp,
+                        clientIp,
+                        userAgent,
+                        "SUCCESS",
+                        null
+                );
+                auditLogRepository.save(successLog);
+            } catch (Exception ex) {
+                log.error("Không thể ghi vết kiểm toán đăng nhập thành công: {}", ex.getMessage());
+            }
+
+            Object principal = authentication.getPrincipal();
+            if (principal instanceof User user && Boolean.TRUE.equals(user.getIsTwoFactorEnabled())) {
+                // Nếu bật 2FA -> Đặt username vào Session và xóa Authentication tạm thời khỏi SecurityContext để chống 2FA bypass
+                request.getSession().setAttribute("PRE_AUTH_USER", username);
+                SecurityContextHolder.clearContext();
+                request.getSession().removeAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+                log.info("Tài khoản [{}] yêu cầu xác thực bước 2 (2FA TOTP), đã cô lập phiên và chuyển hướng tới /auth/2fa", username);
+                response.sendRedirect(request.getContextPath() + "/auth/2fa");
+                return;
+            }
+
+            // Tài khoản không bật 2FA -> Ghi nhận đăng nhập thành công và cho phép vào Dashboard
+            log.info("Người dùng [{}] đã đăng nhập thông tin cơ bản thành công từ IP [{}].", username, clientIp);
+            bruteForceProtectionService.recordSuccessfulLogin(username);
+            response.sendRedirect(request.getContextPath() + "/dashboard");
+        };
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authenticationProvider(authenticationProvider())
+            // Vô hiệu hóa CSRF cho H2 Console, API endpoints và Logout URL để hỗ trợ đa thiết bị/cloud
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers(
+                    new AntPathRequestMatcher("/h2-console/**"),
+                    new AntPathRequestMatcher("/api/**"),
+                    new AntPathRequestMatcher("/logout")
+                )
+            )
+            // Cấu hình hiển thị iframe cho H2 Web Console
+            .headers(headers -> headers
+                .frameOptions(frame -> frame.sameOrigin())
+            )
+            // Phân quyền URL đa cấp độ Dynamic RBAC
+            .authorizeHttpRequests(auth -> auth
+                // Tài nguyên tĩnh công khai & trang đăng nhập/đăng ký
+                .requestMatchers(
+                    "/login", "/register", "/auth/2fa", "/css/**", "/js/**", "/images/**",
+                    "/webjars/**", "/favicon.ico", "/error"
+                ).permitAll()
+                // H2 Console & Swagger Documentation
+                .requestMatchers("/h2-console/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // STOMP WebSocket Endpoint
+                .requestMatchers("/ws/**").permitAll()
+                // Phân quyền theo 4 Roles
+                .requestMatchers("/api/admin/**").hasRole("SUPER_ADMIN")
+                .requestMatchers("/api/audit/**").hasAnyRole("SUPER_ADMIN", "SYSTEM_AUDITOR")
+                .requestMatchers("/api/family/**").hasAnyRole("SUPER_ADMIN", "FAMILY_HEAD")
+                // Mọi request còn lại yêu cầu đăng nhập
+                .anyRequest().authenticated()
+            )
+            // Cấu hình Form Login
+            .formLogin(form -> form
+                .loginPage("/login")
+                .loginProcessingUrl("/login")
+                .successHandler(authenticationSuccessHandler())
+                .failureHandler(authenticationFailureHandler())
+                .permitAll()
+            )
+            // Cấu hình Đăng xuất an toàn: Hỗ trợ cả GET và POST, ghi nhận Audit Log
+            .logout(logout -> logout
+                .logoutRequestMatcher(new OrRequestMatcher(
+                    new AntPathRequestMatcher("/logout", "GET"),
+                    new AntPathRequestMatcher("/logout", "POST")
+                ))
+                .logoutSuccessHandler((request, response, authentication) -> {
+                    if (authentication != null) {
+                        String username = authentication.getName();
+                        String clientIp = SecurityUtils.getClientIpAddress(request);
+                        String userAgent = SecurityUtils.getClientUserAgent(request);
+                        String role = authentication.getAuthorities().stream()
+                                .map(GrantedAuthority::getAuthority)
+                                .collect(Collectors.joining(","));
+                        try {
+                            AuditLog logoutLog = new AuditLog(
+                                    username,
+                                    role.isEmpty() ? "ROLE_STANDARD_USER" : role,
+                                    "LOGOUT_SUCCESS",
+                                    "IAM_SECURITY",
+                                    "app_users",
+                                    null,
+                                    null,
+                                    "Đăng xuất an toàn từ IP: " + clientIp,
+                                    clientIp,
+                                    userAgent,
+                                    "SUCCESS",
+                                    null
+                            );
+                            auditLogRepository.save(logoutLog);
+                        } catch (Exception ex) {
+                            log.error("Không thể ghi vết kiểm toán đăng xuất: {}", ex.getMessage());
+                        }
+                        log.info("Người dùng [{}] đã đăng xuất an toàn khỏi hệ thống từ IP [{}].", username, clientIp);
+                    }
+                    response.sendRedirect(request.getContextPath() + "/login?logout=true");
+                })
+                .invalidateHttpSession(true)
+                .deleteCookies("JSESSIONID")
+                .permitAll()
+            )
+            // Quản lý phiên làm việc Session
+            .sessionManagement(session -> session
+                .maximumSessions(3)
+                .expiredUrl("/login?expired=true")
+            )
+            // Xử lý ngoại lệ tầng Security Filter Chain
+            .exceptionHandling(ex -> ex
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    String uri = request.getRequestURI();
+                    if (uri.startsWith("/api/")) {
+                        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Truy cập bị từ chối: bạn không đủ thẩm quyền\",\"errorCode\":\"FORBIDDEN\"}");
+                    } else {
+                        response.sendRedirect(request.getContextPath() + "/error?denied=true");
+                    }
+                })
+                .authenticationEntryPoint((request, response, authException) -> {
+                    String uri = request.getRequestURI();
+                    if (uri.startsWith("/api/")) {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write("{\"success\":false,\"message\":\"Yêu cầu xác thực tài khoản\",\"errorCode\":\"UNAUTHORIZED\"}");
+                    } else {
+                        response.sendRedirect(request.getContextPath() + "/login");
+                    }
+                })
+            );
+
+        return http.build();
+    }
+}
