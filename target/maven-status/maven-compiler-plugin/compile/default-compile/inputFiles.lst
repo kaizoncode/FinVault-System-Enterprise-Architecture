@@ -11,10 +11,13 @@ E:\Nhom 3\src\main\java\com\finvault\config\WebSocketConfig.java
 E:\Nhom 3\src\main\java\com\finvault\controller\MainDashboardController.java
 E:\Nhom 3\src\main\java\com\finvault\FinVaultApplication.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\AuthController.java
+E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\BootstrapController.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\TwoFactorApiController.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\UserApiController.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\AesEncryptionConverter.java
+E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\CryptoConfigValidator.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\TotpManager.java
+E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\BootstrapAdminRequest.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\LoginRequest.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\PasswordChangeDto.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\RegisterRequest.java

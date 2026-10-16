@@ -5,6 +5,7 @@ import com.finvault.common.SecurityUtils;
 import com.finvault.module4_analytics_reporting.dto.ImportReportResultDto;
 import com.finvault.module4_analytics_reporting.dto.TransactionExportFilterRequest;
 import com.finvault.module4_analytics_reporting.service.ReportExportImportService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -42,7 +43,7 @@ public class ReportApiController {
      */
     @PostMapping("/export/excel")
     public ResponseEntity<byte[]> exportPersonalExcel(
-            @RequestBody(required = false) TransactionExportFilterRequest filter) {
+            @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();
         byte[] bytes = reportService.exportTransactionsToExcel(username, filter);
 
@@ -57,7 +58,7 @@ public class ReportApiController {
      */
     @PostMapping("/export/pdf")
     public ResponseEntity<byte[]> exportPersonalPdf(
-            @RequestBody(required = false) TransactionExportFilterRequest filter) {
+            @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();
         byte[] bytes = reportService.exportTransactionsToPdf(username, filter);
 
@@ -73,7 +74,7 @@ public class ReportApiController {
     @PostMapping("/system/export/excel")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
     public ResponseEntity<byte[]> exportSystemExcel(
-            @RequestBody(required = false) TransactionExportFilterRequest filter) {
+            @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         byte[] bytes = reportService.exportSystemTransactionsToExcel(filter);
 
         return ResponseEntity.ok()
@@ -88,7 +89,7 @@ public class ReportApiController {
     @PostMapping("/system/export/pdf")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
     public ResponseEntity<byte[]> exportSystemPdf(
-            @RequestBody(required = false) TransactionExportFilterRequest filter) {
+            @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         byte[] bytes = reportService.exportSystemTransactionsToPdf(filter);
 
         return ResponseEntity.ok()

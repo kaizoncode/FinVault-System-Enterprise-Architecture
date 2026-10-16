@@ -3,6 +3,7 @@ package com.finvault.module2_wallet_ledger.dto;
 import com.finvault.module2_wallet_ledger.entity.TransactionType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 import java.io.Serializable;
@@ -36,6 +37,10 @@ public class TransactionRequest implements Serializable {
     @Size(max = 500, message = "Ghi chú giao dịch tối đa 500 ký tự")
     private String note;
 
+    @Pattern(
+        regexp = "^(https://[a-zA-Z0-9.-]+(:[0-9]+)?(/.*)?|/uploads/[a-zA-Z0-9_.-]+)?$",
+        message = "receiptUrl chỉ chấp nhận đường dẫn ảnh hóa đơn nội bộ /uploads/... hoặc URL với giao thức https://"
+    )
     private String receiptUrl;
 
     private Boolean isRecurring = false;

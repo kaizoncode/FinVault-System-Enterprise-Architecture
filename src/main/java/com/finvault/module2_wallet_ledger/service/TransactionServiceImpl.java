@@ -22,7 +22,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -103,6 +105,7 @@ public class TransactionServiceImpl implements TransactionService {
         transaction.setAmount(request.getAmount());
         transaction.setTransactionDate(request.getTransactionDate() != null ? request.getTransactionDate() : LocalDateTime.now());
         transaction.setNote(request.getNote() != null ? request.getNote().trim() : null);
+        validateReceiptUrl(request.getReceiptUrl());
         transaction.setReceiptUrl(request.getReceiptUrl());
         transaction.setIsRecurring(Boolean.TRUE.equals(request.getIsRecurring()));
         transaction.setRecurringInterval(request.getRecurringInterval());
@@ -234,6 +237,25 @@ public class TransactionServiceImpl implements TransactionService {
                             sourceWallet.getCurrency(), targetWallet.getCurrency()));
         }
 
+        // Kiểm tra hạn mức chi tiêu hàng tháng trên ví nguồn nếu có cấu hình (chống vượt hạn mức - [L-M3])
+        if (sourceWallet.getWalletType() != WalletType.CREDIT_CARD
+                && sourceWallet.getMonthlySpendingLimit() != null
+                && sourceWallet.getMonthlySpendingLimit().compareTo(BigDecimal.ZERO) > 0) {
+            LocalDateTime startOfMonth = LocalDate.now().withDayOfMonth(1).atStartOfDay();
+            LocalDateTime endOfMonth = LocalDate.now().with(TemporalAdjusters.lastDayOfMonth()).atTime(23, 59, 59);
+            BigDecimal currentMonthSpent = transactionRepository.sumExpenseAndTransferByWalletAndDateRange(
+                    sourceWallet.getId(), startOfMonth, endOfMonth);
+            if (currentMonthSpent == null) {
+                currentMonthSpent = BigDecimal.ZERO;
+            }
+            BigDecimal projectedTotal = currentMonthSpent.add(request.getAmount());
+            if (projectedTotal.compareTo(sourceWallet.getMonthlySpendingLimit()) > 0) {
+                throw new BusinessException("SPENDING_LIMIT_EXCEEDED",
+                        String.format("Tổng chi tiêu và chuyển tiền trong tháng (%s VND) sẽ vượt quá hạn mức tối đa của ví nguồn (%s VND)",
+                                projectedTotal.toPlainString(), sourceWallet.getMonthlySpendingLimit().toPlainString()));
+            }
+        }
+
         // Thực hiện giao dịch nguyên tử (ACID)
         sourceWallet.withdraw(request.getAmount());
         targetWallet.deposit(request.getAmount());
@@ -241,23 +263,40 @@ public class TransactionServiceImpl implements TransactionService {
         walletRepository.save(sourceWallet);
         walletRepository.save(targetWallet);
 
-        Transaction transfer = new Transaction();
-        transfer.setWallet(sourceWallet);
-        transfer.setTargetWallet(targetWallet);
-        transfer.setUser(user);
-        transfer.setTransactionType(TransactionType.TRANSFER);
-        transfer.setAmount(request.getAmount());
-        transfer.setTransactionDate(LocalDateTime.now());
-        transfer.setNote(request.getNote() != null ? request.getNote().trim() : "Chuyển tiền liên ví");
-        transfer.setApprovalStatus(ApprovalStatus.APPROVED);
+        LocalDateTime now = LocalDateTime.now();
+        String baseNote = (request.getNote() != null && !request.getNote().isBlank()) ? request.getNote().trim() : "Chuyển tiền liên ví";
 
-        Transaction saved = transactionRepository.save(transfer);
+        // Bản ghi 1: Ví nguồn (Debit / Ghi nợ)
+        Transaction debitTransfer = new Transaction();
+        debitTransfer.setWallet(sourceWallet);
+        debitTransfer.setTargetWallet(targetWallet);
+        debitTransfer.setUser(user);
+        debitTransfer.setTransactionType(TransactionType.TRANSFER);
+        debitTransfer.setAmount(request.getAmount());
+        debitTransfer.setTransactionDate(now);
+        debitTransfer.setNote("Chuyển tới " + targetWallet.getWalletName() + ": " + baseNote);
+        debitTransfer.setApprovalStatus(ApprovalStatus.APPROVED);
 
-        eventPublisher.publishEvent(new TransactionCreatedEvent(this, saved));
+        Transaction savedDebit = transactionRepository.save(debitTransfer);
+
+        // Bản ghi 2: Ví đích (Credit / Ghi có) - Đảm bảo lịch sử giao dịch ví nhận không bị thiếu vết kiểm toán [L-C2]
+        Transaction creditTransfer = new Transaction();
+        creditTransfer.setWallet(targetWallet);
+        creditTransfer.setTargetWallet(sourceWallet);
+        creditTransfer.setUser(user);
+        creditTransfer.setTransactionType(TransactionType.TRANSFER);
+        creditTransfer.setAmount(request.getAmount());
+        creditTransfer.setTransactionDate(now);
+        creditTransfer.setNote("Nhận từ " + sourceWallet.getWalletName() + ": " + baseNote);
+        creditTransfer.setApprovalStatus(ApprovalStatus.APPROVED);
+
+        transactionRepository.save(creditTransfer);
+
+        eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedDebit));
         log.info("Chuyển tiền thành công {} VND từ ví [{}] sang ví [{}] bởi [{}]",
                 request.getAmount(), sourceWallet.getWalletName(), targetWallet.getWalletName(), username);
 
-        return TransactionResponseDto.fromEntity(saved);
+        return TransactionResponseDto.fromEntity(savedDebit);
     }
 
     @Override
@@ -323,7 +362,7 @@ public class TransactionServiceImpl implements TransactionService {
 
         boolean isSuperAdmin = user.hasRole(Role.ROLE_SUPER_ADMIN);
         boolean isOwner = wallet.getUser().getId().equals(user.getId());
-        boolean isMember = wallet.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(user.getId()));
+        boolean isMember = wallet.getMembers().stream().anyMatch(m -> m.getUser().getId().equals(user.getId()) && Boolean.TRUE.equals(m.getIsActive()));
 
         if (!isSuperAdmin && !isOwner && !isMember) {
             throw new BusinessException("FORBIDDEN", "Bạn không có quyền xem giao dịch của ví này", HttpStatus.FORBIDDEN);
@@ -359,7 +398,7 @@ public class TransactionServiceImpl implements TransactionService {
         boolean isSuperAdmin = user.hasRole(Role.ROLE_SUPER_ADMIN);
         boolean isCreator = transaction.getUser().getId().equals(user.getId());
         boolean isWalletOwner = transaction.getWallet().getUser().getId().equals(user.getId());
-        boolean isMember = transaction.getWallet().getMembers().stream().anyMatch(m -> m.getUser().getId().equals(user.getId()));
+        boolean isMember = transaction.getWallet().getMembers().stream().anyMatch(m -> m.getUser().getId().equals(user.getId()) && Boolean.TRUE.equals(m.getIsActive()));
 
         if (!isSuperAdmin && !isCreator && !isWalletOwner && !isMember) {
             throw new BusinessException("FORBIDDEN", "Bạn không có quyền xem chi tiết giao dịch này", HttpStatus.FORBIDDEN);
@@ -373,5 +412,74 @@ public class TransactionServiceImpl implements TransactionService {
     public Transaction getTransactionEntityById(Long transactionId) {
         return transactionRepository.findByIdAndIsDeletedFalse(transactionId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Không tìm thấy giao dịch ID: " + transactionId, HttpStatus.NOT_FOUND));
+    }
+
+    @Override
+    @Transactional
+    public void deleteTransaction(Long transactionId, String username) {
+        User user = userService.getUserEntityByUsername(username);
+        Transaction transaction = getTransactionEntityById(transactionId);
+
+        boolean isSuperAdmin = user.hasRole(Role.ROLE_SUPER_ADMIN);
+        boolean isCreator = transaction.getUser().getId().equals(user.getId());
+        boolean isWalletOwner = transaction.getWallet().getUser().getId().equals(user.getId());
+
+        if (!isSuperAdmin && !isCreator && !isWalletOwner) {
+            throw new BusinessException("FORBIDDEN", "Bạn không có quyền xóa giao dịch này", HttpStatus.FORBIDDEN);
+        }
+
+        // Nếu giao dịch đã APPROVED, hoàn trả lại số dư tương ứng cho ví [L-C1]
+        if (transaction.getApprovalStatus() == ApprovalStatus.APPROVED) {
+            Wallet wallet = walletRepository.findByIdForUpdate(transaction.getWallet().getId())
+                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết", HttpStatus.NOT_FOUND));
+
+            if (transaction.getTransactionType() == TransactionType.INCOME) {
+                // Thu nhập bị xóa -> trừ tiền lại khỏi ví
+                wallet.withdraw(transaction.getAmount());
+            } else if (transaction.getTransactionType() == TransactionType.EXPENSE) {
+                // Chi tiêu bị xóa -> hoàn trả tiền vào ví
+                wallet.deposit(transaction.getAmount());
+            } else if (transaction.getTransactionType() == TransactionType.TRANSFER) {
+                // Chuyển tiền bị xóa -> hoàn trả tiền vào ví nguồn, trừ khỏi ví đích nếu có
+                wallet.deposit(transaction.getAmount());
+                if (transaction.getTargetWallet() != null) {
+                    Wallet targetWallet = walletRepository.findByIdForUpdate(transaction.getTargetWallet().getId()).orElse(null);
+                    if (targetWallet != null) {
+                        targetWallet.withdraw(transaction.getAmount());
+                        walletRepository.save(targetWallet);
+                    }
+                }
+            }
+            walletRepository.save(wallet);
+        }
+
+        transaction.setIsDeleted(true);
+        transactionRepository.save(transaction);
+        log.info("Người dùng [{}] đã soft-delete giao dịch [{}]. Số dư ví đã được hoàn trả chính xác.", username, transactionId);
+    }
+
+    private void validateReceiptUrl(String receiptUrl) {
+        if (receiptUrl == null || receiptUrl.isBlank()) {
+            return;
+        }
+        String lower = receiptUrl.trim().toLowerCase();
+        if (lower.startsWith("/uploads/")) {
+            return;
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(receiptUrl.trim());
+            String scheme = uri.getScheme();
+            if (!"https".equalsIgnoreCase(scheme)) {
+                throw new BusinessException("INVALID_RECEIPT_URL", "Hóa đơn đính kèm chỉ hỗ trợ giao thức HTTPS hoặc thư mục nội bộ /uploads/");
+            }
+            String host = uri.getHost();
+            if (host == null || host.isBlank() || "localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host)
+                    || host.startsWith("10.") || host.startsWith("192.168.") || host.startsWith("172.")
+                    || host.startsWith("169.254.") || host.endsWith(".internal") || host.endsWith(".local")) {
+                throw new BusinessException("SSRF_DETECTED", "Địa chỉ URL hóa đơn không hợp lệ hoặc trỏ tới mạng nội bộ");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("INVALID_RECEIPT_URL", "Định dạng URL hóa đơn không hợp lệ");
+        }
     }
 }

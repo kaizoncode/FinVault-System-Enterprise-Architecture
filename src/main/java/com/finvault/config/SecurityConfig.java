@@ -23,6 +23,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 
@@ -167,12 +168,12 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authenticationProvider(authenticationProvider())
-            // Vô hiệu hóa CSRF cho H2 Console, API endpoints và Logout URL để hỗ trợ đa thiết bị/cloud
+            // Kích hoạt bảo vệ CSRF chuẩn qua CookieCsrfTokenRepository (chỉ miễn trừ H2 Console và WebSocket STOMP)
             .csrf(csrf -> csrf
+                .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .ignoringRequestMatchers(
                     new AntPathRequestMatcher("/h2-console/**"),
-                    new AntPathRequestMatcher("/api/**"),
-                    new AntPathRequestMatcher("/logout")
+                    new AntPathRequestMatcher("/ws/**")
                 )
             )
             // Cấu hình hiển thị iframe cho H2 Web Console
@@ -181,13 +182,15 @@ public class SecurityConfig {
             )
             // Phân quyền URL đa cấp độ Dynamic RBAC
             .authorizeHttpRequests(auth -> auth
-                // Tài nguyên tĩnh công khai & trang đăng nhập/đăng ký
+                // Tài nguyên tĩnh công khai & trang đăng nhập/đăng ký & bootstrap
                 .requestMatchers(
                     "/login", "/register", "/auth/2fa", "/css/**", "/js/**", "/images/**",
-                    "/webjars/**", "/favicon.ico", "/error"
+                    "/webjars/**", "/favicon.ico", "/error", "/api/admin/bootstrap"
                 ).permitAll()
-                // H2 Console & Swagger Documentation
-                .requestMatchers("/h2-console/**", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                // H2 Console chỉ dành riêng cho SUPER_ADMIN
+                .requestMatchers("/h2-console/**").hasRole("SUPER_ADMIN")
+                // Swagger Documentation yêu cầu xác thực
+                .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").authenticated()
                 // STOMP WebSocket Endpoint
                 .requestMatchers("/ws/**").permitAll()
                 // Phân quyền theo 4 Roles
@@ -205,12 +208,9 @@ public class SecurityConfig {
                 .failureHandler(authenticationFailureHandler())
                 .permitAll()
             )
-            // Cấu hình Đăng xuất an toàn: Hỗ trợ cả GET và POST, ghi nhận Audit Log
+            // Cấu hình Đăng xuất an toàn: Chỉ chấp nhận phương thức POST có kèm CSRF token hợp lệ
             .logout(logout -> logout
-                .logoutRequestMatcher(new OrRequestMatcher(
-                    new AntPathRequestMatcher("/logout", "GET"),
-                    new AntPathRequestMatcher("/logout", "POST")
-                ))
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "POST"))
                 .logoutSuccessHandler((request, response, authentication) -> {
                     if (authentication != null) {
                         String username = authentication.getName();

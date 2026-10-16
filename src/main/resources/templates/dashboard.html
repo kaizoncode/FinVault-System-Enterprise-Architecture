@@ -13,6 +13,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Custom Main CSS -->
     <link rel="stylesheet" th:href="@{/css/main.css}" href="/css/main.css">
+
+    <!-- Spring Security CSRF Meta Tags for AJAX Requests -->
+    <meta th:if="${_csrf != null}" name="_csrf" th:content="${_csrf.token}"/>
+    <meta th:if="${_csrf != null}" name="_csrf_header" th:content="${_csrf.headerName}"/>
 </head>
 <body th:attr="data-username=${username}">
 

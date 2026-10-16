@@ -30,8 +30,13 @@ public class RateLimiterFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        // Chỉ áp dụng giới hạn tốc độ trên các API endpoint
-        return !path.startsWith("/api/") || path.startsWith("/api/auth/");
+        // Bỏ qua tài nguyên tĩnh và trang lỗi hệ thống
+        return path.startsWith("/css/")
+                || path.startsWith("/js/")
+                || path.startsWith("/images/")
+                || path.startsWith("/webjars/")
+                || path.equals("/favicon.ico")
+                || path.startsWith("/error");
     }
 
     @Override
@@ -42,10 +47,26 @@ public class RateLimiterFilter extends OncePerRequestFilter {
 
         if (!rateLimiterService.tryConsume(clientKey)) {
             response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
-            response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write(
-                    "{\"success\":false,\"message\":\"Quá nhiều yêu cầu. Vui lòng thử lại sau giây lát (Rate limit exceeded)\",\"errorCode\":\"TOO_MANY_REQUESTS\"}"
-            );
+            String path = request.getRequestURI();
+
+            if (path.startsWith("/api/")) {
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write(
+                        "{\"success\":false,\"message\":\"Quá nhiều yêu cầu. Vui lòng thử lại sau giây lát (Rate limit exceeded)\",\"errorCode\":\"TOO_MANY_REQUESTS\"}"
+                );
+            } else if ("POST".equalsIgnoreCase(request.getMethod()) && ("/login".equals(path) || "/register".equals(path))) {
+                response.sendRedirect(request.getContextPath() + path + "?rateLimited=true");
+            } else {
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().write(
+                        "<!DOCTYPE html><html><head><meta charset='UTF-8'><title>429 Too Many Requests</title></head>"
+                                + "<body style='font-family:sans-serif;text-align:center;padding:50px;'>"
+                                + "<h2>429 - Quá nhiều yêu cầu</h2>"
+                                + "<p>FinVault phát hiện số lượng yêu cầu bất thường từ bạn. Vui lòng đợi trong giây lát.</p>"
+                                + "<a href='" + request.getContextPath() + "/login'>Quay lại trang Đăng nhập</a>"
+                                + "</body></html>"
+                );
+            }
             return;
         }
 
@@ -53,15 +74,15 @@ public class RateLimiterFilter extends OncePerRequestFilter {
     }
 
     private String resolveClientKey(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        boolean isAuthEndpoint = "/login".equals(path) || "/register".equals(path) || "/auth/2fa".equals(path) || path.startsWith("/api/admin/bootstrap");
+
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
-            return "USER:" + auth.getName();
+            return (isAuthEndpoint ? "AUTH:USER:" : "USER:") + auth.getName();
         }
 
-        String xf = request.getHeader("X-Forwarded-For");
-        if (xf != null && !xf.isBlank()) {
-            return "IP:" + xf.split(",")[0].trim();
-        }
-        return "IP:" + request.getRemoteAddr();
+        String clientIp = com.finvault.common.SecurityUtils.getClientIpAddress(request);
+        return (isAuthEndpoint ? "AUTH:IP:" : "IP:") + clientIp;
     }
 }

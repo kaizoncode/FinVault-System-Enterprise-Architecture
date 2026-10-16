@@ -6,6 +6,24 @@
  */
 
 // ==============================================================================
+// CSRF TOKEN HELPER CHO MUTATING AJAX REQUESTS (POST, PUT, DELETE, PATCH)
+// ==============================================================================
+window.getCsrfHeaders = function () {
+    const metaToken = document.querySelector('meta[name="_csrf"]');
+    const metaHeader = document.querySelector('meta[name="_csrf_header"]');
+    const headers = {};
+    if (metaToken && metaHeader && metaToken.content && metaHeader.content) {
+        headers[metaHeader.content] = metaToken.content;
+    } else {
+        const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+        if (match) {
+            headers['X-XSRF-TOKEN'] = decodeURIComponent(match[1]);
+        }
+    }
+    return headers;
+};
+
+// ==============================================================================
 // 0. TOP-LEVEL GLOBAL ACTIONS (In-Place RBAC Handlers attached to window)
 // ==============================================================================
 
@@ -81,7 +99,7 @@ window.decideFamilyTransaction = function (transactionId, isApproved) {
 
     fetch('/api/transactions/' + transactionId + '/approval', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: Object.assign({ 'Content-Type': 'application/json' }, window.getCsrfHeaders()),
         body: JSON.stringify(payload)
     })
         .then(res => res.json())
@@ -139,7 +157,8 @@ window.unlockUserAccount = function (username) {
     }
 
     fetch('/api/audit/locked-accounts/' + encodeURIComponent(username) + '/unlock', {
-        method: 'POST'
+        method: 'POST',
+        headers: window.getCsrfHeaders()
     })
         .then(res => res.json())
         .then(result => {
@@ -177,7 +196,10 @@ window.restoreSoftDeletedItem = function (type, id) {
 
     if (!endpoint) return;
 
-    fetch(endpoint, { method: 'POST' })
+    fetch(endpoint, {
+        method: 'POST',
+        headers: window.getCsrfHeaders()
+    })
         .then(res => res.json())
         .then(result => {
             if (result.success) {
@@ -205,7 +227,8 @@ window.restoreSoftDeletedItem = function (type, id) {
 window.toggleNotificationStatus = function (notifId, currentStatus) {
     const newStatus = !currentStatus;
     fetch('/api/admin/cms/notifications/' + notifId + '/toggle?active=' + newStatus, {
-        method: 'PATCH'
+        method: 'PATCH',
+        headers: window.getCsrfHeaders()
     })
         .then(res => res.json())
         .then(result => {
@@ -475,7 +498,7 @@ function setupQuickTransactionForm() {
 
         fetch('/api/transactions', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({ 'Content-Type': 'application/json' }, window.getCsrfHeaders()),
             body: JSON.stringify(payload)
         })
             .then(res => res.json())
@@ -539,7 +562,7 @@ function setupQuickTransferForm() {
 
         fetch('/api/transactions/transfer', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({ 'Content-Type': 'application/json' }, window.getCsrfHeaders()),
             body: JSON.stringify(payload)
         })
             .then(res => res.json())
@@ -593,7 +616,7 @@ function setupCreateWalletForm() {
 
         fetch('/api/wallets', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({ 'Content-Type': 'application/json' }, window.getCsrfHeaders()),
             body: JSON.stringify(payload)
         })
             .then(res => res.json())
@@ -651,7 +674,7 @@ function setupAdminLiveCms() {
 
         fetch('/api/admin/cms/configs/' + encodeURIComponent(key), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: Object.assign({ 'Content-Type': 'application/json' }, window.getCsrfHeaders()),
             body: JSON.stringify(payload)
         })
             .then(res => res.json())

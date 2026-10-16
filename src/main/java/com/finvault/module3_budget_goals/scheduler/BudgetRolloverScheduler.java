@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -18,7 +19,7 @@ import java.util.List;
  *
  * Lịch trình thực thi:
  * - Chạy tự động vào 00:00:00 ngày đầu tiên của mỗi tháng (Cron: 0 0 0 1 * ?)
- * - Quét các ngân sách đã hết hạn chu kỳ, tổng kết số dư và tự động vô hiệu hóa chu kỳ cũ.
+ * - Quét các ngân sách đã hết hạn chu kỳ, tổng kết số dư và tự động tạo chu kỳ mới cho tháng kế tiếp.
  * ==============================================================================
  */
 @Component
@@ -54,8 +55,27 @@ public class BudgetRolloverScheduler {
             count++;
             log.info("Đã đóng chu kỳ cũ của ngân sách [{}]: Đã chi {} / Phân bổ {}",
                     budget.getBudgetName(), budget.getSpentAmount(), budget.getAllocatedAmount());
+
+            // Tự động khởi tạo chu kỳ mới cho tháng tiếp theo [L-H3]
+            Budget newCycle = new Budget();
+            newCycle.setUser(budget.getUser());
+            newCycle.setCategory(budget.getCategory());
+            newCycle.setWallet(budget.getWallet());
+            newCycle.setBudgetName(budget.getBudgetName());
+            newCycle.setBudgetType(budget.getBudgetType());
+            newCycle.setAllocationType(budget.getAllocationType());
+            newCycle.setAllocatedAmount(budget.getAllocatedAmount());
+            newCycle.setSpentAmount(BigDecimal.ZERO);
+            newCycle.setStartDate(today);
+            newCycle.setEndDate(today.plusMonths(1).minusDays(1));
+            newCycle.setIsActive(true);
+            newCycle.setAlertThreshold80Sent(false);
+            newCycle.setAlertThreshold100Sent(false);
+            budgetRepository.save(newCycle);
+            log.info("Đã kích hoạt chu kỳ mới cho ngân sách [{}] (Từ {} đến {})",
+                    newCycle.getBudgetName(), newCycle.getStartDate(), newCycle.getEndDate());
         }
 
-        log.info("Hoàn tất tác vụ Rollover. Đã đóng chu kỳ thành công {} ngân sách.", count);
+        log.info("Hoàn tất tác vụ Rollover. Đã tái kích hoạt thành công {} chu kỳ ngân sách mới.", count);
     }
 }

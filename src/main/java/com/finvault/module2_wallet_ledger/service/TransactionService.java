@@ -36,4 +36,6 @@ public interface TransactionService {
     TransactionResponseDto getTransactionById(Long transactionId, String username);
 
     Transaction getTransactionEntityById(Long transactionId);
+
+    void deleteTransaction(Long transactionId, String username);
 }

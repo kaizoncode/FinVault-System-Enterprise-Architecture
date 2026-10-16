@@ -161,6 +161,15 @@ public class SupportTicketRecoveryServiceImpl implements SupportTicketRecoverySe
                 wallet.deposit(tx.getAmount());
             } else if (tx.getTransactionType() == TransactionType.EXPENSE) {
                 wallet.withdraw(tx.getAmount());
+            } else if (tx.getTransactionType() == TransactionType.TRANSFER) {
+                wallet.withdraw(tx.getAmount());
+                if (tx.getTargetWallet() != null) {
+                    Wallet targetWallet = walletRepository.findByIdForUpdate(tx.getTargetWallet().getId()).orElse(null);
+                    if (targetWallet != null) {
+                        targetWallet.deposit(tx.getAmount());
+                        walletRepository.save(targetWallet);
+                    }
+                }
             }
             walletRepository.save(wallet);
         }

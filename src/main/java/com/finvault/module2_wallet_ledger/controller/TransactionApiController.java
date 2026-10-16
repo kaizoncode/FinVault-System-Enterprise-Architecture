@@ -54,6 +54,16 @@ public class TransactionApiController {
     }
 
     /**
+     * Xóa (Soft delete) giao dịch và hoàn trả số dư ví an toàn
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteTransaction(@PathVariable("id") Long id) {
+        String username = SecurityUtils.getCurrentUsername();
+        transactionService.deleteTransaction(id, username);
+        return ResponseEntity.ok(ApiResponse.success("Xóa giao dịch thành công", null));
+    }
+
+    /**
      * Chuyển tiền liên ví (Inter-wallet Transfer) chống Deadlock và Race Condition
      */
     @PostMapping("/transfer")

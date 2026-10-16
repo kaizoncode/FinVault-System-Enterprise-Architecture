@@ -34,6 +34,13 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     @Query("SELECT w FROM Wallet w WHERE w.id = :id AND w.isDeleted = false")
     Optional<Wallet> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * Khóa bi quan (Pessimistic Lock) kèm kiểm tra chủ sở hữu ví (chống IDOR & Race Condition)
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT w FROM Wallet w WHERE w.id = :walletId AND w.user.id = :userId AND w.isDeleted = false")
+    Optional<Wallet> findByIdAndUserIdForUpdate(@Param("walletId") Long walletId, @Param("userId") Long userId);
+
     List<Wallet> findAllByUserIdAndIsDeletedFalse(Long userId);
 
     List<Wallet> findAllByIsDeletedFalse();

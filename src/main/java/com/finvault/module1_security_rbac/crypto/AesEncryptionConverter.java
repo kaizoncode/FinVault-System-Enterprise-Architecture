@@ -40,23 +40,29 @@ public class AesEncryptionConverter implements AttributeConverter<String, String
     private static final String ALGORITHM = "AES/GCM/NoPadding";
     private static final int GCM_IV_LENGTH_BYTES = 12;
     private static final int GCM_TAG_LENGTH_BITS = 128;
-    private static final String DEFAULT_FALLBACK_KEY_HEX = "4f8b2c1e7a9d0f3b5e8a1c4d7f0b2e5a8d1c4f7b0e3a6c9d2f5b8e1a4d7c0f3e";
 
     private static byte[] staticKeyBytes;
     private static final SecureRandom secureRandom = new SecureRandom();
 
     public AesEncryptionConverter() {
         if (staticKeyBytes == null) {
-            staticKeyBytes = hexStringToByteArray(DEFAULT_FALLBACK_KEY_HEX);
+            staticKeyBytes = new byte[32];
+            secureRandom.nextBytes(staticKeyBytes);
+            log.warn("AesEncryptionConverter: Khởi tạo khóa mã hóa AES-256 ngẫu nhiên an toàn trong bộ nhớ (Chưa cấu hình FINVAULT_AES_KEY).");
         }
     }
 
-    @Value("${finvault.crypto.aes-secret-key:4f8b2c1e7a9d0f3b5e8a1c4d7f0b2e5a8d1c4f7b0e3a6c9d2f5b8e1a4d7c0f3e}")
+    @Value("${finvault.crypto.aes-secret-key:}")
     public void setSecretKey(String hexKey) {
         if (hexKey != null && !hexKey.isBlank()) {
-            staticKeyBytes = hexStringToByteArray(hexKey.trim());
-            log.info("AesEncryptionConverter: Khóa mã hóa AES-256 đã được nạp thành công.");
+            byte[] parsed = hexStringToByteArray(hexKey.trim());
+            if (parsed.length == 32) {
+                staticKeyBytes = parsed;
+                log.info("AesEncryptionConverter: Khóa mã hóa AES-256 từ cấu hình đã được nạp thành công.");
+                return;
+            }
         }
+        log.warn("WARN: FINVAULT_AES_KEY không được cung cấp hoặc không hợp lệ. Đang duy trì khóa AES-256 ngẫu nhiên an toàn trong bộ nhớ.");
     }
 
     @Override
@@ -128,7 +134,9 @@ public class AesEncryptionConverter implements AttributeConverter<String, String
         if (staticKeyBytes != null && staticKeyBytes.length == 32) {
             return staticKeyBytes;
         }
-        return hexStringToByteArray(DEFAULT_FALLBACK_KEY_HEX);
+        staticKeyBytes = new byte[32];
+        secureRandom.nextBytes(staticKeyBytes);
+        return staticKeyBytes;
     }
 
     private static byte[] hexStringToByteArray(String s) {

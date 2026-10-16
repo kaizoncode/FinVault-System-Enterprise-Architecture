@@ -8,8 +8,11 @@ import com.finvault.module2_wallet_ledger.entity.Category;
 import com.finvault.module2_wallet_ledger.entity.Transaction;
 import com.finvault.module2_wallet_ledger.entity.TransactionType;
 import com.finvault.module2_wallet_ledger.entity.Wallet;
+import com.finvault.module2_wallet_ledger.entity.WalletMember;
+import com.finvault.module2_wallet_ledger.entity.WalletMemberRole;
 import com.finvault.module2_wallet_ledger.repository.CategoryRepository;
 import com.finvault.module2_wallet_ledger.repository.TransactionRepository;
+import com.finvault.module2_wallet_ledger.repository.WalletMemberRepository;
 import com.finvault.module2_wallet_ledger.repository.WalletRepository;
 import com.finvault.module4_analytics_reporting.dto.ImportReportResultDto;
 import org.apache.poi.ss.usermodel.*;
@@ -52,15 +55,21 @@ public class ExcelTransactionImporter {
 
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
+    private final WalletMemberRepository walletMemberRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
 
+    @org.springframework.beans.factory.annotation.Value("${finvault.family.approval-threshold-vnd:5000000}")
+    private BigDecimal approvalThreshold;
+
     public ExcelTransactionImporter(TransactionRepository transactionRepository,
                                     WalletRepository walletRepository,
+                                    WalletMemberRepository walletMemberRepository,
                                     CategoryRepository categoryRepository,
                                     UserRepository userRepository) {
         this.transactionRepository = transactionRepository;
         this.walletRepository = walletRepository;
+        this.walletMemberRepository = walletMemberRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
     }
@@ -135,6 +144,22 @@ public class ExcelTransactionImporter {
                         continue;
                     }
 
+                    // Kiểm tra quyền hạn trên ví (Chống lỗ hổng IDOR - [H-3])
+                    boolean isOwner = targetWallet.getUser().getId().equals(user.getId());
+                    Optional<WalletMember> memberOpt = walletMemberRepository.findByWalletIdAndUserId(targetWallet.getId(), user.getId());
+                    boolean isMember = memberOpt.map(m -> Boolean.TRUE.equals(m.getIsActive())).orElse(false);
+
+                    if (!isOwner && !isMember) {
+                        result.setFailureCount(result.getFailureCount() + 1);
+                        result.addErrorMessage("Dòng " + rowIndex + ": Bạn không có quyền thêm giao dịch vào ví ID: " + targetWallet.getId());
+                        continue;
+                    }
+                    if (!isOwner && memberOpt.isPresent() && memberOpt.get().getMemberRole() == WalletMemberRole.VIEWER) {
+                        result.setFailureCount(result.getFailureCount() + 1);
+                        result.addErrorMessage("Dòng " + rowIndex + ": Thành viên với quyền VIEWER không được thêm giao dịch vào ví");
+                        continue;
+                    }
+
                     // Kiểm tra trùng lặp (Duplicate Detection)
                     boolean isDuplicate = checkDuplicateTransaction(user.getId(), targetWallet.getId(), amount, txDate, description);
                     if (isDuplicate) {
@@ -143,16 +168,13 @@ public class ExcelTransactionImporter {
                         continue;
                     }
 
-                    // Cập nhật số dư ví
-                    if (txType == TransactionType.INCOME) {
-                        targetWallet.deposit(amount);
-                    } else if (txType == TransactionType.EXPENSE) {
-                        targetWallet.withdraw(amount);
-                    }
+                    // Quy trình phê duyệt quỹ gia đình - [L-C3]
+                    boolean isFamilyWallet = Boolean.TRUE.equals(targetWallet.getIsFamilyWallet());
+                    boolean requiresApproval = isFamilyWallet
+                            && (txType == TransactionType.EXPENSE)
+                            && (amount.compareTo(approvalThreshold) >= 0)
+                            && !isOwner;
 
-                    walletRepository.save(targetWallet);
-
-                    // Lưu giao dịch vào Sổ cái
                     Transaction tx = new Transaction(
                             targetWallet,
                             user,
@@ -162,7 +184,20 @@ public class ExcelTransactionImporter {
                             txDate,
                             (description != null && !description.isBlank()) ? description : "Nhập từ file Excel"
                     );
-                    tx.setApprovalStatus(ApprovalStatus.APPROVED);
+
+                    if (requiresApproval) {
+                        // Tạm thời KHÔNG trừ tiền ví, chuyển sang trạng thái chờ duyệt
+                        tx.setApprovalStatus(ApprovalStatus.PENDING);
+                    } else {
+                        // Cập nhật số dư ví
+                        if (txType == TransactionType.INCOME) {
+                            targetWallet.deposit(amount);
+                        } else if (txType == TransactionType.EXPENSE) {
+                            targetWallet.withdraw(amount);
+                        }
+                        walletRepository.save(targetWallet);
+                        tx.setApprovalStatus(ApprovalStatus.APPROVED);
+                    }
 
                     transactionRepository.save(tx);
                     result.setSuccessCount(result.getSuccessCount() + 1);

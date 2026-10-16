@@ -1,6 +1,6 @@
 -- ==============================================================================
 -- FINVAULT ENTERPRISE - INITIAL SEED DATA (data.sql)
--- Default Roles, Accounts (Password: Password@123), Categories, System Configs
+-- Default Roles, Seeded Accounts, Categories, System Configs
 -- ==============================================================================
 
 -- 1. SEED ROLES
@@ -10,8 +10,7 @@ MERGE INTO roles (id, role_name, description) KEY(role_name) VALUES
 (3, 'ROLE_FAMILY_HEAD', 'Chủ hộ gia đình, quản lý Quỹ chung và phê duyệt chi tiêu thành viên'),
 (4, 'ROLE_STANDARD_USER', 'Người dùng cá nhân chuẩn, quản lý ví và ngân sách cá nhân');
 
--- 2. SEED USERS (Mật khẩu mặc định: Password@123 -> Hash BCrypt chuẩn xác thực bởi Spring Security 6)
--- $2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG
+-- 2. SEED USERS (BCrypt hashed credentials)
 MERGE INTO app_users KEY(username) VALUES
 (1, 'admin', 'admin@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Nguyễn Quản Trị Viên', '0901234567', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
 (2, 'auditor', 'auditor@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Trần Kiểm Toán Viên', '0912345678', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),

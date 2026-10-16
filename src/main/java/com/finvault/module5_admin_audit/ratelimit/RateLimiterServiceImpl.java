@@ -38,8 +38,23 @@ public class RateLimiterServiceImpl implements RateLimiterService {
                 .build();
     }
 
+    private Bucket createAuthBucket() {
+        Bandwidth limit = Bandwidth.builder()
+                .capacity(10)
+                .refillGreedy(10, Duration.ofMinutes(1))
+                .build();
+        return Bucket.builder()
+                .addLimit(limit)
+                .build();
+    }
+
     private Bucket resolveBucket(String key) {
-        return bucketCache.computeIfAbsent(key, k -> createNewBucket());
+        return bucketCache.computeIfAbsent(key, k -> {
+            if (k.startsWith("AUTH:") || k.startsWith("LOGIN:")) {
+                return createAuthBucket();
+            }
+            return createNewBucket();
+        });
     }
 
     @Override

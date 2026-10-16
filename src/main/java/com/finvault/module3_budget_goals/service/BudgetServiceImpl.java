@@ -1,6 +1,7 @@
 package com.finvault.module3_budget_goals.service;
 
 import com.finvault.common.BusinessException;
+import com.finvault.module1_security_rbac.entity.Role;
 import com.finvault.module1_security_rbac.entity.User;
 import com.finvault.module1_security_rbac.repository.UserRepository;
 import com.finvault.module2_wallet_ledger.entity.Category;
@@ -14,6 +15,8 @@ import com.finvault.module3_budget_goals.entity.AllocationType;
 import com.finvault.module3_budget_goals.entity.Budget;
 import com.finvault.module3_budget_goals.entity.BudgetType;
 import com.finvault.module3_budget_goals.repository.BudgetRepository;
+import com.finvault.module3_budget_goals.rule.BudgetAlertRuleEngine;
+import com.finvault.module3_budget_goals.websocket.BudgetAlertWebSocketSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -49,15 +52,21 @@ public class BudgetServiceImpl implements BudgetService {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final WalletRepository walletRepository;
+    private final BudgetAlertRuleEngine ruleEngine;
+    private final BudgetAlertWebSocketSender webSocketSender;
 
     public BudgetServiceImpl(BudgetRepository budgetRepository,
                              UserRepository userRepository,
                              CategoryRepository categoryRepository,
-                             WalletRepository walletRepository) {
+                             WalletRepository walletRepository,
+                             BudgetAlertRuleEngine ruleEngine,
+                             BudgetAlertWebSocketSender webSocketSender) {
         this.budgetRepository = budgetRepository;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.walletRepository = walletRepository;
+        this.ruleEngine = ruleEngine;
+        this.webSocketSender = webSocketSender;
     }
 
     @Override
@@ -176,7 +185,7 @@ public class BudgetServiceImpl implements BudgetService {
         validateBudgetDates(request.getStartDate(), request.getEndDate());
 
         Budget budget = getBudgetEntityById(budgetId);
-        validateBudgetOwnership(budget, username);
+        validateBudgetWriteAccess(budget, username);
 
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findByIdAndIsDeletedFalse(request.getCategoryId())
@@ -206,13 +215,30 @@ public class BudgetServiceImpl implements BudgetService {
             budget.setAllocationType(request.getAllocationType());
         }
 
-        // Tự động reset cờ cảnh báo nếu người dùng nâng hạn mức ngân sách cao hơn số tiền đã chi
+        // Đồng bộ lại cờ cảnh báo ngân sách phù hợp với hạn mức mới (khi tăng hoặc giảm hạn mức - [L-H4])
+        BigDecimal eightyPercent = budget.getAllocatedAmount().multiply(new BigDecimal("0.80"));
         if (budget.getSpentAmount().compareTo(budget.getAllocatedAmount()) < 0) {
             budget.setAlertThreshold100Sent(false);
-            BigDecimal eightyPercent = budget.getAllocatedAmount().multiply(new BigDecimal("0.80"));
-            if (budget.getSpentAmount().compareTo(eightyPercent) < 0) {
-                budget.setAlertThreshold80Sent(false);
-            }
+        }
+        if (budget.getSpentAmount().compareTo(eightyPercent) < 0) {
+            budget.setAlertThreshold80Sent(false);
+        }
+
+        // Đánh giá và phát cảnh báo thời gian thực nếu việc điều chỉnh làm ngân sách chạm ngưỡng 80% hoặc 100%
+        if (ruleEngine != null && webSocketSender != null && budget.getUser() != null) {
+            ruleEngine.evaluateAndCreateAlert(budget).ifPresent(alert -> {
+                webSocketSender.sendAlert(budget.getUser().getUsername(), alert);
+                log.info("Đã phát cảnh báo thời gian thực sau khi cập nhật hạn mức ngân sách [{}]: {}",
+                        budget.getBudgetName(), alert.getAlertMessage());
+            });
+        }
+
+        // Đảm bảo cờ cảnh báo được ghi nhận chính xác sau khi đánh giá
+        if (budget.getSpentAmount().compareTo(budget.getAllocatedAmount()) >= 0) {
+            budget.setAlertThreshold100Sent(true);
+            budget.setAlertThreshold80Sent(true);
+        } else if (budget.getSpentAmount().compareTo(eightyPercent) >= 0) {
+            budget.setAlertThreshold80Sent(true);
         }
 
         Budget updated = budgetRepository.save(budget);
@@ -224,7 +250,7 @@ public class BudgetServiceImpl implements BudgetService {
     public void deleteBudget(Long budgetId, String username) {
         log.info("Xóa (Soft delete) ngân sách ID: {} bởi user: '{}'", budgetId, username);
         Budget budget = getBudgetEntityById(budgetId);
-        validateBudgetOwnership(budget, username);
+        validateBudgetWriteAccess(budget, username);
 
         budget.setIsDeleted(true);
         budget.setIsActive(false);
@@ -236,7 +262,7 @@ public class BudgetServiceImpl implements BudgetService {
     @Transactional(readOnly = true)
     public BudgetResponseDto getBudgetById(Long budgetId, String username) {
         Budget budget = getBudgetEntityById(budgetId);
-        validateBudgetOwnership(budget, username);
+        validateBudgetReadAccess(budget, username);
         return BudgetResponseDto.fromEntity(budget);
     }
 
@@ -311,12 +337,31 @@ public class BudgetServiceImpl implements BudgetService {
         }
     }
 
-    private void validateBudgetOwnership(Budget budget, String username) {
+    private void validateBudgetReadAccess(Budget budget, String username) {
         if (budget.getBudgetType() == BudgetType.STANDARD_TEMPLATE) {
-            return; // Mẫu chuẩn hệ thống cho phép đọc chung
+            return; // Mẫu chuẩn hệ thống cho phép mọi người dùng đọc chung
+        }
+        User user = getUserByUsername(username);
+        if (budget.getUser() == null || !budget.getUser().getUsername().equals(username)) {
+            if (!user.hasRole(Role.ROLE_SUPER_ADMIN)) {
+                throw new BusinessException("ACCESS_DENIED", "Bạn không có quyền truy cập ngân sách này");
+            }
+        }
+    }
+
+    private void validateBudgetWriteAccess(Budget budget, String username) {
+        User user = getUserByUsername(username);
+        if (budget.getBudgetType() == BudgetType.STANDARD_TEMPLATE) {
+            // Chỉ Super Admin mới có quyền cập nhật hoặc xóa mẫu chuẩn hệ thống [L-W1]
+            if (!user.hasRole(Role.ROLE_SUPER_ADMIN)) {
+                throw new BusinessException("ACCESS_DENIED", "Chỉ Super Admin mới có quyền sửa đổi hoặc xóa mẫu ngân sách chuẩn hệ thống");
+            }
+            return;
         }
         if (budget.getUser() == null || !budget.getUser().getUsername().equals(username)) {
-            throw new BusinessException("ACCESS_DENIED", "Bạn không có quyền truy cập hoặc chỉnh sửa ngân sách này");
+            if (!user.hasRole(Role.ROLE_SUPER_ADMIN)) {
+                throw new BusinessException("ACCESS_DENIED", "Bạn không có quyền chỉnh sửa hoặc xóa ngân sách này");
+            }
         }
     }
 

@@ -213,6 +213,13 @@ public class SavingGoalServiceImpl implements SavingGoalService {
         // Rút tiền khỏi Quỹ (method withdraw kiểm tra số dư hiện có)
         goal.withdraw(amount);
 
+        // Kiểm tra tính nhất quán trạng thái: Nếu mục tiêu đã ACHIEVED mà bị rút tiền xuống dưới mức mục tiêu, chuyển về IN_PROGRESS [L-M1]
+        if (goal.getStatus() == SavingGoalStatus.ACHIEVED && goal.getCurrentAmount().compareTo(goal.getTargetAmount()) < 0) {
+            goal.setStatus(SavingGoalStatus.IN_PROGRESS);
+            log.warn("Mục tiêu tiết kiệm ID: [{}] đã bị rút tiền xuống dưới hạn mức mục tiêu (Hiện còn: {} / Cần: {}). Tự động chuyển trạng thái về IN_PROGRESS.",
+                    goalId, goal.getCurrentAmount(), goal.getTargetAmount());
+        }
+
         // Nếu có chỉ định ví nhận tiền hoàn về, thực hiện cộng tiền an toàn vào ví
         if (targetWalletId != null) {
             Wallet targetWallet = walletRepository.findByIdForUpdate(targetWalletId)

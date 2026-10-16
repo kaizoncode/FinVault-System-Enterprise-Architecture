@@ -225,7 +225,6 @@ public class WalletServiceImpl implements WalletService {
         }
 
         wallet.getMembers().removeIf(m -> m.getUser().getId().equals(memberUserId));
-        walletMemberRepository.deleteByWalletIdAndUserId(walletId, memberUserId);
         walletRepository.save(wallet);
         log.info("Đã xóa thành viên ID [{}] khỏi Quỹ gia đình ID [{}]", memberUserId, walletId);
         return WalletResponseDto.fromEntity(wallet);

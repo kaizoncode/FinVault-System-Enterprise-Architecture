@@ -6,6 +6,7 @@ import com.finvault.module1_security_rbac.dto.UserResponseDto;
 import com.finvault.module5_admin_audit.dto.AuditLogFilterRequest;
 import com.finvault.module5_admin_audit.dto.AuditLogResponseDto;
 import com.finvault.module5_admin_audit.service.AuditLogService;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -54,7 +55,7 @@ public class AuditTrailApiController {
      */
     @PostMapping("/logs/filter")
     public ResponseEntity<ApiResponse<Page<AuditLogResponseDto>>> filterAuditLogs(
-            @RequestBody AuditLogFilterRequest filter,
+            @RequestBody @Valid AuditLogFilterRequest filter,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         Pageable pageable = PageRequest.of(page, size);
