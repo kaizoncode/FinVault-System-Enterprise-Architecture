@@ -38,6 +38,8 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     Page<Transaction> findAllByUserIdAndIsDeletedFalseOrderByTransactionDateDesc(Long userId, Pageable pageable);
 
+    List<Transaction> findAllByIsRecurringTrueAndIsDeletedFalse();
+
     /**
      * Tra cứu các giao dịch đang chờ duyệt (PENDING) thuộc các ví gia đình mà người dùng là Chủ quỹ hoặc Quản trị viên
      */
@@ -69,15 +71,15 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     BigDecimal sumTotalExpenseByWallet(@Param("walletId") Long walletId);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0.00) FROM Transaction t WHERE t.wallet.id = :walletId " +
-           "AND t.transactionType = 'TRANSFER' AND t.approvalStatus = 'APPROVED' AND t.isDeleted = false")
+           "AND t.transactionType = 'TRANSFER' AND t.transferDirection = 'OUTGOING' AND t.approvalStatus = 'APPROVED' AND t.isDeleted = false")
     BigDecimal sumTotalTransfersOutByWallet(@Param("walletId") Long walletId);
 
-    @Query("SELECT COALESCE(SUM(t.amount), 0.00) FROM Transaction t WHERE t.targetWallet.id = :walletId " +
-           "AND t.transactionType = 'TRANSFER' AND t.approvalStatus = 'APPROVED' AND t.isDeleted = false")
+    @Query("SELECT COALESCE(SUM(t.amount), 0.00) FROM Transaction t WHERE t.wallet.id = :walletId " +
+           "AND t.transactionType = 'TRANSFER' AND t.transferDirection = 'INCOMING' AND t.approvalStatus = 'APPROVED' AND t.isDeleted = false")
     BigDecimal sumTotalTransfersInByWallet(@Param("walletId") Long walletId);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0.00) FROM Transaction t WHERE t.wallet.id = :walletId " +
-           "AND (t.transactionType = 'EXPENSE' OR t.transactionType = 'TRANSFER') " +
+           "AND (t.transactionType = 'EXPENSE' OR (t.transactionType = 'TRANSFER' AND t.transferDirection = 'OUTGOING')) " +
            "AND t.approvalStatus = 'APPROVED' AND t.isDeleted = false " +
            "AND t.transactionDate >= :startDate AND t.transactionDate <= :endDate")
     BigDecimal sumExpenseAndTransferByWalletAndDateRange(

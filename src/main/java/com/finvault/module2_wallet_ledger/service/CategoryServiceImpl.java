@@ -49,7 +49,11 @@ public class CategoryServiceImpl implements CategoryService {
         boolean isSuperAdmin = user.hasRole(Role.ROLE_SUPER_ADMIN);
         boolean createAsSystemDefault = Boolean.TRUE.equals(request.getIsSystemDefault()) && isSuperAdmin;
 
-        if (categoryRepository.existsByCategoryNameAndUserIdAndIsDeletedFalse(request.getCategoryName().trim(), createAsSystemDefault ? null : user.getId())) {
+        boolean exists = createAsSystemDefault
+                ? categoryRepository.existsByCategoryNameAndUserIsNullAndIsDeletedFalse(request.getCategoryName().trim())
+                : categoryRepository.existsByCategoryNameAndUserIdAndIsDeletedFalse(request.getCategoryName().trim(), user.getId());
+
+        if (exists) {
             throw new BusinessException("CATEGORY_EXISTS", "Danh mục '" + request.getCategoryName() + "' đã tồn tại");
         }
 

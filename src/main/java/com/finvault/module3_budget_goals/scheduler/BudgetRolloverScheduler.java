@@ -56,7 +56,12 @@ public class BudgetRolloverScheduler {
             log.info("Đã đóng chu kỳ cũ của ngân sách [{}]: Đã chi {} / Phân bổ {}",
                     budget.getBudgetName(), budget.getSpentAmount(), budget.getAllocatedAmount());
 
-            // Tự động khởi tạo chu kỳ mới cho tháng tiếp theo [L-H3]
+            // Tự động khởi tạo chu kỳ mới dựa trên thời lượng ban đầu (originalDuration)
+            Long duration = budget.getOriginalDuration();
+            if (duration == null && budget.getStartDate() != null && budget.getEndDate() != null) {
+                duration = java.time.temporal.ChronoUnit.DAYS.between(budget.getStartDate(), budget.getEndDate()) + 1;
+            }
+
             Budget newCycle = new Budget();
             newCycle.setUser(budget.getUser());
             newCycle.setCategory(budget.getCategory());
@@ -67,7 +72,12 @@ public class BudgetRolloverScheduler {
             newCycle.setAllocatedAmount(budget.getAllocatedAmount());
             newCycle.setSpentAmount(BigDecimal.ZERO);
             newCycle.setStartDate(today);
-            newCycle.setEndDate(today.plusMonths(1).minusDays(1));
+            if (duration != null && duration > 0) {
+                newCycle.setEndDate(today.plusDays(duration - 1));
+                newCycle.setOriginalDuration(duration);
+            } else {
+                newCycle.setEndDate(today.plusMonths(1).minusDays(1));
+            }
             newCycle.setIsActive(true);
             newCycle.setAlertThreshold80Sent(false);
             newCycle.setAlertThreshold100Sent(false);

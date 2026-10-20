@@ -4,6 +4,7 @@ import com.finvault.common.BusinessException;
 import com.finvault.module2_wallet_ledger.entity.ApprovalStatus;
 import com.finvault.module2_wallet_ledger.entity.Transaction;
 import com.finvault.module2_wallet_ledger.entity.TransactionType;
+import com.finvault.module2_wallet_ledger.entity.TransferDirection;
 import com.finvault.module2_wallet_ledger.entity.Wallet;
 import com.finvault.module2_wallet_ledger.repository.TransactionRepository;
 import com.finvault.module2_wallet_ledger.repository.WalletRepository;
@@ -150,30 +151,83 @@ public class SupportTicketRecoveryServiceImpl implements SupportTicketRecoverySe
         Transaction tx = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new BusinessException("TRANSACTION_NOT_FOUND", "Không tìm thấy giao dịch ID: " + transactionId));
 
-        tx.setIsDeleted(false);
+        if (!Boolean.TRUE.equals(tx.getIsDeleted())) {
+            throw new BusinessException("TRANSACTION_NOT_DELETED", "Giao dịch không ở trạng thái bị xóa");
+        }
 
         // Nếu giao dịch đã được phê duyệt, đồng bộ lại số dư ví tương ứng
         if (tx.getApprovalStatus() == ApprovalStatus.APPROVED && tx.getWallet() != null) {
-            Wallet wallet = walletRepository.findByIdForUpdate(tx.getWallet().getId())
-                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết ID: " + tx.getWallet().getId()));
-
             if (tx.getTransactionType() == TransactionType.INCOME) {
+                Wallet wallet = walletRepository.findByIdForUpdate(tx.getWallet().getId())
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết ID: " + tx.getWallet().getId()));
+                if (Boolean.TRUE.equals(wallet.getIsDeleted())) {
+                    throw new BusinessException("WALLET_DELETED", "Ví liên kết (ID: " + wallet.getId() + ") đã bị xóa. Vui lòng khôi phục ví trước khi khôi phục giao dịch");
+                }
                 wallet.deposit(tx.getAmount());
+                walletRepository.save(wallet);
             } else if (tx.getTransactionType() == TransactionType.EXPENSE) {
+                Wallet wallet = walletRepository.findByIdForUpdate(tx.getWallet().getId())
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết ID: " + tx.getWallet().getId()));
+                if (Boolean.TRUE.equals(wallet.getIsDeleted())) {
+                    throw new BusinessException("WALLET_DELETED", "Ví liên kết (ID: " + wallet.getId() + ") đã bị xóa. Vui lòng khôi phục ví trước khi khôi phục giao dịch");
+                }
                 wallet.withdraw(tx.getAmount());
+                walletRepository.save(wallet);
             } else if (tx.getTransactionType() == TransactionType.TRANSFER) {
-                wallet.withdraw(tx.getAmount());
-                if (tx.getTargetWallet() != null) {
-                    Wallet targetWallet = walletRepository.findByIdForUpdate(tx.getTargetWallet().getId()).orElse(null);
-                    if (targetWallet != null) {
-                        targetWallet.deposit(tx.getAmount());
-                        walletRepository.save(targetWallet);
-                    }
+                if (tx.getTargetWallet() == null) {
+                    throw new BusinessException("TARGET_WALLET_NOT_FOUND", "Không tìm thấy ví liên kết đối ứng của giao dịch chuyển tiền");
+                }
+
+                Long idA = tx.getWallet().getId();
+                Long idB = tx.getTargetWallet().getId();
+                if (idA.equals(idB)) {
+                    throw new BusinessException("INVALID_TRANSFER", "Ví nguồn và ví đích không thể trùng nhau");
+                }
+                Long firstId = Math.min(idA, idB);
+                Long secondId = Math.max(idA, idB);
+
+                Wallet firstWallet = walletRepository.findByIdForUpdate(firstId)
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví ID: " + firstId));
+                Wallet secondWallet = walletRepository.findByIdForUpdate(secondId)
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví ID: " + secondId));
+
+                Wallet lockedWallet = tx.getWallet().getId().equals(firstId) ? firstWallet : secondWallet;
+                Wallet lockedTargetWallet = tx.getTargetWallet().getId().equals(firstId) ? firstWallet : secondWallet;
+
+                if (Boolean.TRUE.equals(lockedTargetWallet.getIsDeleted())) {
+                    throw new BusinessException("TARGET_WALLET_DELETED", "Ví đích (ID: " + lockedTargetWallet.getId() + ") đã bị xóa. Vui lòng khôi phục ví đích trước khi khôi phục giao dịch chuyển tiền");
+                }
+                if (Boolean.TRUE.equals(lockedWallet.getIsDeleted())) {
+                    throw new BusinessException("WALLET_DELETED", "Ví chính (ID: " + lockedWallet.getId() + ") đã bị xóa. Vui lòng khôi phục ví trước khi khôi phục giao dịch");
+                }
+
+                // Xác định chiều chuyển khoản (INCOMING / OUTGOING)
+                boolean isIncoming = (tx.getTransferDirection() != null && tx.getTransferDirection() == TransferDirection.INCOMING)
+                        || (tx.getNote() != null && tx.getNote().trim().toLowerCase().startsWith("nhận từ"));
+
+                Wallet sourceWallet = isIncoming ? lockedTargetWallet : lockedWallet;
+                Wallet destWallet = isIncoming ? lockedWallet : lockedTargetWallet;
+
+                sourceWallet.withdraw(tx.getAmount());
+                destWallet.deposit(tx.getAmount());
+
+                walletRepository.save(sourceWallet);
+                walletRepository.save(destWallet);
+
+                // Khôi phục luôn bản ghi đối ứng liên kết nếu có
+                if (tx.getLinkedTransactionId() != null) {
+                    transactionRepository.findById(tx.getLinkedTransactionId()).ifPresent(linkedTx -> {
+                        if (Boolean.TRUE.equals(linkedTx.getIsDeleted())) {
+                            linkedTx.setIsDeleted(false);
+                            transactionRepository.save(linkedTx);
+                            log.info("Đã khôi phục bản ghi đối ứng ID: [{}] của giao dịch chuyển khoản [{}]", linkedTx.getId(), tx.getId());
+                        }
+                    });
                 }
             }
-            walletRepository.save(wallet);
         }
 
+        tx.setIsDeleted(false);
         transactionRepository.save(tx);
         log.info("Khôi phục thành công giao dịch ID: {}", transactionId);
     }

@@ -66,7 +66,7 @@ public class AnalyticsApiController {
     /**
      * Tỷ trọng chi tiêu theo danh mục (Dùng cho biểu đồ Doughnut Chart)
      */
-    @GetMapping("/category-expenses")
+    @GetMapping(value = {"/category-expenses", "/expenses/category"})
     public ResponseEntity<ApiResponse<CategoryExpenseDistributionDto>> getCategoryExpenseDistribution(
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {

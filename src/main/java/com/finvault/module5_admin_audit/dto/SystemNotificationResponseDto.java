@@ -20,6 +20,8 @@ public class SystemNotificationResponseDto implements Serializable {
     private String notificationType;
     private Boolean isActive;
     private String broadcastToRoles;
+    private Long targetUserId;
+    private String targetUsername;
     private String createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -36,10 +38,28 @@ public class SystemNotificationResponseDto implements Serializable {
         dto.setNotificationType(entity.getNotificationType());
         dto.setIsActive(entity.getIsActive());
         dto.setBroadcastToRoles(entity.getBroadcastToRoles());
+        dto.setTargetUserId(entity.getTargetUserId());
+        dto.setTargetUsername(entity.getTargetUsername());
         dto.setCreatedBy(entity.getCreatedBy());
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setUpdatedAt(entity.getUpdatedAt());
         return dto;
+    }
+
+    public Long getTargetUserId() {
+        return targetUserId;
+    }
+
+    public void setTargetUserId(Long targetUserId) {
+        this.targetUserId = targetUserId;
+    }
+
+    public String getTargetUsername() {
+        return targetUsername;
+    }
+
+    public void setTargetUsername(String targetUsername) {
+        this.targetUsername = targetUsername;
     }
 
     public Long getId() {

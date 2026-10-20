@@ -46,6 +46,9 @@ public class Wallet extends BaseEntity {
     @Column(name = "balance", nullable = false, precision = 18, scale = 2)
     private BigDecimal balance = BigDecimal.ZERO;
 
+    @Column(name = "initial_balance", precision = 18, scale = 2)
+    private BigDecimal initialBalance = BigDecimal.ZERO;
+
     @Column(name = "currency", nullable = false, length = 10)
     private String currency = "VND";
 
@@ -74,7 +77,8 @@ public class Wallet extends BaseEntity {
         this.user = user;
         this.walletName = walletName;
         this.walletType = walletType;
-        this.balance = (initialBalance != null) ? initialBalance : BigDecimal.ZERO;
+        this.initialBalance = (initialBalance != null) ? initialBalance : BigDecimal.ZERO;
+        this.balance = this.initialBalance;
         this.currency = (currency != null && !currency.isBlank()) ? currency : "VND";
         this.isFamilyWallet = (walletType == WalletType.FAMILY_FUND);
         this.isActive = true;
@@ -160,6 +164,14 @@ public class Wallet extends BaseEntity {
 
     public void setBalance(BigDecimal balance) {
         this.balance = balance;
+    }
+
+    public BigDecimal getInitialBalance() {
+        return (initialBalance != null) ? initialBalance : BigDecimal.ZERO;
+    }
+
+    public void setInitialBalance(BigDecimal initialBalance) {
+        this.initialBalance = (initialBalance != null) ? initialBalance : BigDecimal.ZERO;
     }
 
     public String getCurrency() {

@@ -38,3 +38,7 @@ data/
 
 ### Log files ###
 *.log
+
+### VS Code & Visual Studio ###
+.vs/
+.vscode/

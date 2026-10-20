@@ -39,9 +39,21 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo sao kê giao dịch cá nhân ra file Excel (.xlsx)
+     * Xuất báo cáo sao kê giao dịch cá nhân ra file Excel (.xlsx) qua GET hoặc POST
      */
-    @PostMapping("/export/excel")
+    @GetMapping(value = {"/export/excel", "/transactions/export/excel"})
+    public ResponseEntity<byte[]> exportPersonalExcelGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        String username = SecurityUtils.getCurrentUsername();
+        byte[] bytes = reportService.exportTransactionsToExcel(username, filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-statement-" + username + ".xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @PostMapping(value = {"/export/excel", "/transactions/export/excel"})
     public ResponseEntity<byte[]> exportPersonalExcel(
             @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();
@@ -54,9 +66,21 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo sao kê giao dịch cá nhân ra file PDF (.pdf)
+     * Xuất báo cáo sao kê giao dịch cá nhân ra file PDF (.pdf) qua GET hoặc POST
      */
-    @PostMapping("/export/pdf")
+    @GetMapping(value = {"/export/pdf", "/financial-statement/pdf"})
+    public ResponseEntity<byte[]> exportPersonalPdfGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        String username = SecurityUtils.getCurrentUsername();
+        byte[] bytes = reportService.exportTransactionsToPdf(username, filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-statement-" + username + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(bytes);
+    }
+
+    @PostMapping(value = {"/export/pdf", "/financial-statement/pdf"})
     public ResponseEntity<byte[]> exportPersonalPdf(
             @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();

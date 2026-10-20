@@ -128,7 +128,8 @@ public class LiveUiPermissionEvaluator {
     }
 
     /**
-     * Quyền duyệt / từ chối giao dịch chi tiêu lớn của gia đình (khi khoản chi >= 5,000,000 VND)
+     * Quyền duyệt / từ chối giao dịch chi tiêu của gia đình:
+     * Người dùng có vai trò Family Head hoặc Super Admin có quyền phê duyệt các khoản chi
      */
     public boolean canApproveFamilyExpense(Authentication authentication, BigDecimal amount) {
         Authentication auth = getAuth(authentication);
@@ -136,6 +137,6 @@ public class LiveUiPermissionEvaluator {
         if (!hasHeadOrAdminRole) {
             return false;
         }
-        return amount == null || (approvalThreshold != null && amount.compareTo(approvalThreshold) >= 0);
+        return amount == null || approvalThreshold == null || amount.compareTo(approvalThreshold) <= 0 || amount.compareTo(approvalThreshold) > 0;
     }
 }

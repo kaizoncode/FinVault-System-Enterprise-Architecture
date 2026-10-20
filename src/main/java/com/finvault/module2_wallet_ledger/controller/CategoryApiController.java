@@ -1,12 +1,18 @@
 package com.finvault.module2_wallet_ledger.controller;
 
 import com.finvault.common.ApiResponse;
+import com.finvault.common.BusinessException;
 import com.finvault.common.SecurityUtils;
+import com.finvault.module1_security_rbac.entity.Role;
+import com.finvault.module1_security_rbac.entity.User;
+import com.finvault.module1_security_rbac.service.UserService;
 import com.finvault.module2_wallet_ledger.dto.CategoryRequest;
 import com.finvault.module2_wallet_ledger.dto.CategoryResponseDto;
+import com.finvault.module2_wallet_ledger.entity.Category;
 import com.finvault.module2_wallet_ledger.entity.CategoryType;
 import com.finvault.module2_wallet_ledger.service.CategoryService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -25,9 +31,11 @@ import java.util.List;
 public class CategoryApiController {
 
     private final CategoryService categoryService;
+    private final UserService userService;
 
-    public CategoryApiController(CategoryService categoryService) {
+    public CategoryApiController(CategoryService categoryService, UserService userService) {
         this.categoryService = categoryService;
+        this.userService = userService;
     }
 
     /**
@@ -55,8 +63,18 @@ public class CategoryApiController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CategoryResponseDto>> getCategoryById(@PathVariable("id") Long id) {
-        CategoryResponseDto category = categoryService.getCategoryById(id);
-        return ResponseEntity.ok(ApiResponse.success("Chi tiết danh mục", category));
+        String username = SecurityUtils.getCurrentUsername();
+        User currentUser = username != null ? userService.getUserEntityByUsername(username) : null;
+        Category category = categoryService.getCategoryEntityById(id);
+
+        boolean isAllowed = category.getUser() == null ||
+                (currentUser != null && (currentUser.hasRole(Role.ROLE_SUPER_ADMIN) || category.getUser().getId().equals(currentUser.getId())));
+
+        if (!isAllowed) {
+            throw new BusinessException("FORBIDDEN", "Bạn không có quyền truy cập danh mục này", HttpStatus.FORBIDDEN);
+        }
+
+        return ResponseEntity.ok(ApiResponse.success("Chi tiết danh mục", CategoryResponseDto.fromEntity(category)));
     }
 
     /**

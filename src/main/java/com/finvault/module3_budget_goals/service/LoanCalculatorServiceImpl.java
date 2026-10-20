@@ -84,6 +84,7 @@ public class LoanCalculatorServiceImpl implements LoanCalculatorService {
 
             for (int k = 1; k <= months; k++) {
                 LocalDate paymentDate = startDate.plusMonths(k);
+                BigDecimal startingBalance = remainingPrincipal;
                 BigDecimal interest = remainingPrincipal.multiply(annualRate)
                         .divide(BigDecimal.valueOf(1200), 2, RoundingMode.HALF_UP);
 
@@ -107,6 +108,7 @@ public class LoanCalculatorServiceImpl implements LoanCalculatorService {
                 schedule.add(new LoanAmortizationScheduleDto(
                         k,
                         paymentDate,
+                        startingBalance,
                         principalPaid,
                         interest,
                         totalPaid,
@@ -120,6 +122,7 @@ public class LoanCalculatorServiceImpl implements LoanCalculatorService {
 
             for (int k = 1; k <= months; k++) {
                 LocalDate paymentDate = startDate.plusMonths(k);
+                BigDecimal startingBalance = remainingPrincipal;
                 BigDecimal interest = remainingPrincipal.multiply(annualRate)
                         .divide(BigDecimal.valueOf(1200), 2, RoundingMode.HALF_UP);
 
@@ -142,6 +145,7 @@ public class LoanCalculatorServiceImpl implements LoanCalculatorService {
                 schedule.add(new LoanAmortizationScheduleDto(
                         k,
                         paymentDate,
+                        startingBalance,
                         principalPaid,
                         interest,
                         totalPaid,

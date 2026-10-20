@@ -23,6 +23,7 @@ public class ReconciliationReportDto implements Serializable {
     private Long walletId;
     private String walletName;
     private BigDecimal actualBalance;
+    private BigDecimal initialBalance;
     private BigDecimal totalIncome;
     private BigDecimal totalExpense;
     private BigDecimal totalTransfersOut;
@@ -59,6 +60,14 @@ public class ReconciliationReportDto implements Serializable {
 
     public void setActualBalance(BigDecimal actualBalance) {
         this.actualBalance = actualBalance;
+    }
+
+    public BigDecimal getInitialBalance() {
+        return initialBalance;
+    }
+
+    public void setInitialBalance(BigDecimal initialBalance) {
+        this.initialBalance = initialBalance;
     }
 
     public BigDecimal getTotalIncome() {

@@ -36,20 +36,26 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    @Query("SELECT COUNT(u) > 0 FROM User u JOIN u.roles r WHERE r.roleName = :roleName AND u.isDeleted = false")
+    boolean existsByRoleName(@Param("roleName") String roleName);
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.roleName = :roleName AND u.isActive = true AND u.isDeleted = false")
+    long countActiveUsersByRoleName(@Param("roleName") String roleName);
+
     List<User> findAllByIsDeletedFalse();
 
     @Query("SELECT u FROM User u WHERE u.lockedUntil IS NOT NULL AND u.lockedUntil > CURRENT_TIMESTAMP AND u.isDeleted = false")
     List<User> findCurrentlyLockedUsers();
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.failedLoginAttempts = 0, u.lockedUntil = NULL WHERE u.username = :username")
     void resetFailedLoginAttempts(@Param("username") String username);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.failedLoginAttempts = u.failedLoginAttempts + 1 WHERE u.username = :username")
     void incrementFailedLoginAttempts(@Param("username") String username);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE User u SET u.lockedUntil = :lockedUntil WHERE u.username = :username")
     void lockUserAccount(@Param("username") String username, @Param("lockedUntil") LocalDateTime lockedUntil);
 }

@@ -103,14 +103,16 @@ public class ReconciliationServiceImpl implements ReconciliationService {
         // Net Flow tính từ các giao dịch đã hoàn tất
         BigDecimal netFlow = totalIncome.add(totalTransfersIn).subtract(totalExpense).subtract(totalTransfersOut);
 
-        // calculatedBalance thể hiện dòng tiền ròng ghi nhận từ các giao dịch
-        BigDecimal calculatedBalance = netFlow;
+        // calculatedBalance = initialBalance + netFlow
+        BigDecimal initialBalance = (wallet.getInitialBalance() != null) ? wallet.getInitialBalance() : BigDecimal.ZERO;
+        BigDecimal calculatedBalance = initialBalance.add(netFlow);
         BigDecimal discrepancy = actualBalance.subtract(calculatedBalance).abs();
 
         ReconciliationReportDto dto = new ReconciliationReportDto();
         dto.setWalletId(walletId);
         dto.setWalletName(wallet.getWalletName());
         dto.setActualBalance(actualBalance);
+        dto.setInitialBalance(initialBalance);
         dto.setTotalIncome(totalIncome);
         dto.setTotalExpense(totalExpense);
         dto.setTotalTransfersOut(totalTransfersOut);
@@ -126,9 +128,9 @@ public class ReconciliationServiceImpl implements ReconciliationService {
             dto.setStatusMessage("Số dư sổ cái hoàn toàn khớp với lịch sử giao dịch (Toàn vẹn 100%)");
         } else {
             dto.setIsDiscrepancyDetected(true);
-            dto.setStatusMessage(String.format("LƯU Ý ĐỐI SOÁT: Số dư thực tế (%s %s) lệch so với dòng tiền ròng phát sinh (%s %s). Độ lệch: %s %s (Lưu ý đối chiếu với Số dư khởi tạo ban đầu / Opening Balance của ví).",
+            dto.setStatusMessage(String.format("LƯU Ý ĐỐI SOÁT: Số dư thực tế (%s %s) lệch so với số dư tính toán (%s %s). Độ lệch: %s %s.",
                     actualBalance.toPlainString(), wallet.getCurrency(),
-                    netFlow.toPlainString(), wallet.getCurrency(),
+                    calculatedBalance.toPlainString(), wallet.getCurrency(),
                     discrepancy.toPlainString(), wallet.getCurrency()));
         }
 

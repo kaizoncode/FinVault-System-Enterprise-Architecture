@@ -10,11 +10,13 @@ package com.finvault.module2_wallet_ledger.entity;
  * - BANK: Tài khoản ngân hàng liên kết
  * - CREDIT_CARD: Thẻ tín dụng (có hạn mức chi tiêu)
  * - FAMILY_FUND: Quỹ tài chính chung gia đình (có cơ chế phân quyền đa thành viên)
+ * - SAVINGS: Sổ tiết kiệm tích lũy
  * ==============================================================================
  */
 public enum WalletType {
     CASH,
     BANK,
     CREDIT_CARD,
-    FAMILY_FUND
+    FAMILY_FUND,
+    SAVINGS
 }

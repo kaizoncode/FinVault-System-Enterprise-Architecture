@@ -37,6 +37,12 @@ public class SystemNotification implements Serializable {
     @Column(name = "broadcast_to_roles", length = 255)
     private String broadcastToRoles = "ALL";
 
+    @Column(name = "target_user_id")
+    private Long targetUserId;
+
+    @Column(name = "target_username", length = 50)
+    private String targetUsername;
+
     @Column(name = "created_by", length = 50)
     private String createdBy;
 
@@ -54,10 +60,16 @@ public class SystemNotification implements Serializable {
         this.content = content;
         this.notificationType = (notificationType != null) ? notificationType : "INFO";
         this.isActive = (isActive != null) ? isActive : true;
-        this.broadcastToRoles = (broadcastToRoles != null) ? broadcastToRoles : "ALL";
+        this.broadcastToRoles = broadcastToRoles;
         this.createdBy = createdBy;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public SystemNotification(String title, String content, String notificationType, Boolean isActive, String broadcastToRoles, Long targetUserId, String targetUsername, String createdBy) {
+        this(title, content, notificationType, isActive, broadcastToRoles, createdBy);
+        this.targetUserId = targetUserId;
+        this.targetUsername = targetUsername;
     }
 
     public Long getId() {
@@ -106,6 +118,22 @@ public class SystemNotification implements Serializable {
 
     public void setBroadcastToRoles(String broadcastToRoles) {
         this.broadcastToRoles = broadcastToRoles;
+    }
+
+    public Long getTargetUserId() {
+        return targetUserId;
+    }
+
+    public void setTargetUserId(Long targetUserId) {
+        this.targetUserId = targetUserId;
+    }
+
+    public String getTargetUsername() {
+        return targetUsername;
+    }
+
+    public void setTargetUsername(String targetUsername) {
+        this.targetUsername = targetUsername;
     }
 
     public String getCreatedBy() {

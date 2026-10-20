@@ -66,12 +66,22 @@ public class BootstrapController {
         String clientIp = SecurityUtils.getClientIpAddress(httpRequest);
         String userAgent = SecurityUtils.getClientUserAgent(httpRequest);
 
-        // Kiểm tra Token khởi tạo nếu có cấu hình trong biến môi trường FINVAULT_BOOTSTRAP_TOKEN
-        if (configuredBootstrapToken != null && !configuredBootstrapToken.isBlank()) {
-            if (request.getSetupToken() == null || !configuredBootstrapToken.equals(request.getSetupToken().trim())) {
-                log.warn("Nỗ lực khởi tạo admin với Token không hợp lệ từ IP: {}", clientIp);
-                throw new BusinessException("INVALID_BOOTSTRAP_TOKEN", "Token khởi tạo hệ thống không chính xác hoặc đã hết hạn", HttpStatus.FORBIDDEN);
-            }
+        // 1. Kiểm tra nếu hệ thống đã có tài khoản Super Admin thì CHẶN hoàn toàn
+        boolean superAdminExists = userRepository.existsByRoleName(Role.ROLE_SUPER_ADMIN);
+        if (superAdminExists) {
+            log.warn("Cảnh báo bảo mật: Nỗ lực truy cập Bootstrap khi hệ thống đã có Super Admin từ IP: {}", clientIp);
+            throw new BusinessException("BOOTSTRAP_ALREADY_COMPLETED", "Hệ thống đã hoàn tất khởi tạo Super Admin. Endpoint bootstrap đã bị vô hiệu hóa.", HttpStatus.FORBIDDEN);
+        }
+
+        // 2. Nếu chưa có Super Admin, BẮT BUỘC token cấu hình và token gửi lên phải khớp (không được để trống)
+        if (configuredBootstrapToken == null || configuredBootstrapToken.isBlank()) {
+            log.error("Cảnh báo bảo mật: FINVAULT_BOOTSTRAP_TOKEN chưa được cấu hình trên server.");
+            throw new BusinessException("BOOTSTRAP_TOKEN_NOT_CONFIGURED", "Hệ thống chưa cấu hình Token khởi tạo bảo mật (FINVAULT_BOOTSTRAP_TOKEN)", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        if (request.getSetupToken() == null || !configuredBootstrapToken.equals(request.getSetupToken().trim())) {
+            log.warn("Nỗ lực khởi tạo admin với Token không hợp lệ từ IP: {}", clientIp);
+            throw new BusinessException("INVALID_BOOTSTRAP_TOKEN", "Token khởi tạo hệ thống không chính xác hoặc đã hết hạn", HttpStatus.FORBIDDEN);
         }
 
         String username = (request.getUsername() != null && !request.getUsername().isBlank())

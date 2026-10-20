@@ -55,6 +55,15 @@ public interface BudgetRepository extends JpaRepository<Budget, Long> {
             @Param("txDate") LocalDate txDate);
 
     /**
+     * Tra cứu ngân sách chung / ngân sách quy tắc 50/30/20 (không gán danh mục cụ thể: category IS NULL)
+     */
+    @Query("SELECT b FROM Budget b WHERE b.user.id = :userId AND b.category IS NULL " +
+           "AND b.startDate <= :date AND b.endDate >= :date AND b.isDeleted = false")
+    List<Budget> findActiveBudgetsWithNullCategoryByUserAndDate(
+            @Param("userId") Long userId,
+            @Param("date") LocalDate date);
+
+    /**
      * Tra cứu ngân sách theo nhóm phân bổ 50/30/20 (NEEDS / WANTS / SAVINGS)
      */
     @Query("SELECT b FROM Budget b WHERE b.user.id = :userId AND b.allocationType = :allocationType " +

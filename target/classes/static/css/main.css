@@ -196,6 +196,12 @@ html {
     scroll-behavior: smooth;
 }
 
+#wallets-section,
+#transactions-section,
+#budgets-section,
+#saving-goals-section,
+#loan-calculator-section,
+#bi-analytics-section,
 #family-approval-section,
 #auditor-monitor-section,
 #admin-live-cms-section,
@@ -220,5 +226,72 @@ html {
 
 .cursor-pointer {
     cursor: pointer;
+}
+
+/* Dynamic View Header & Module Blocks */
+#dashboard-view-header {
+    animation: fadeInView 0.3s ease-in-out;
+    background: #ffffff;
+    box-shadow: 0 4px 20px -2px rgba(37, 99, 235, 0.08);
+}
+
+@keyframes fadeInView {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dashboard-module-block {
+    transition: all 0.25s ease-in-out;
+}
+
+#mainDashboardNav .nav-link {
+    transition: all 0.2s ease-in-out;
+    padding-bottom: 0.5rem;
+}
+
+#mainDashboardNav .nav-link:hover {
+    color: var(--primary-color) !important;
+}
+
+/* Universal Modal Styling & Native Fallback (Independent of CDN availability) */
+.modal.show {
+    display: block !important;
+}
+
+body.modal-open {
+    overflow: hidden !important;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5 !important;
+    display: block !important;
+}
+
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1050;
+    width: 100vw;
+    height: 100vh;
+    background-color: #000000;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1055;
+    width: 100%;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: auto;
+    outline: 0;
 }
 

@@ -38,4 +38,7 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findAvailableCategoriesForUserAndType(@Param("userId") Long userId, @Param("type") CategoryType type);
 
     boolean existsByCategoryNameAndUserIdAndIsDeletedFalse(String categoryName, Long userId);
+
+    @Query("SELECT COUNT(c) > 0 FROM Category c WHERE LOWER(c.categoryName) = LOWER(:categoryName) AND c.user IS NULL AND c.isDeleted = false")
+    boolean existsByCategoryNameAndUserIsNullAndIsDeletedFalse(@Param("categoryName") String categoryName);
 }

@@ -5,7 +5,9 @@ import com.finvault.module1_security_rbac.service.BruteForceProtectionService;
 import com.finvault.module1_security_rbac.service.CustomUserDetailsService;
 import com.finvault.module1_security_rbac.service.TwoFactorAuthService;
 import com.finvault.module1_security_rbac.service.UserService;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -14,6 +16,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,6 +24,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
 /**
@@ -59,25 +64,83 @@ public class AuthController {
             @RequestParam(value = "logout", required = false) String logout,
             @RequestParam(value = "locked", required = false) String locked,
             @RequestParam(value = "remainingMinutes", required = false) String remainingMinutes,
+            @RequestParam(value = "switchUser", required = false) String switchUser,
+            HttpServletRequest request,
+            HttpServletResponse response,
             Model model,
             Authentication authentication) {
+
+        // Nếu request đăng xuất hoặc đổi tài khoản, giải phóng session và security context ngay lập tức
+        if (logout != null || switchUser != null) {
+            if (authentication != null) {
+                new SecurityContextLogoutHandler().logout(request, response, authentication);
+            }
+            SecurityContextHolder.clearContext();
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+
+            // Xóa triệt để các Cookie xác thực của phiên làm việc cũ
+            Cookie jsessionCookie = new Cookie("JSESSIONID", "");
+            jsessionCookie.setPath("/");
+            jsessionCookie.setMaxAge(0);
+            jsessionCookie.setHttpOnly(true);
+            response.addCookie(jsessionCookie);
+
+            Cookie xsrfCookie = new Cookie("XSRF-TOKEN", "");
+            xsrfCookie.setPath("/");
+            xsrfCookie.setMaxAge(0);
+            response.addCookie(xsrfCookie);
+
+            authentication = null;
+        }
 
         if (authentication != null && authentication.isAuthenticated() && !"anonymousUser".equals(authentication.getPrincipal())) {
             return "redirect:/dashboard";
         }
 
-        if (locked != null) {
+        if (switchUser != null) {
+            model.addAttribute("prefillUsername", switchUser);
+            model.addAttribute("successMessage", "Vui lòng nhập mật khẩu để đăng nhập tài khoản [" + switchUser + "].");
+        } else if (locked != null) {
             model.addAttribute("errorMessage", "Tài khoản của bạn tạm thời bị khóa " +
                     (remainingMinutes != null ? remainingMinutes : "15") + " phút do nhập sai mật khẩu quá 5 lần.");
         } else if (error != null) {
             model.addAttribute("errorMessage", "Tên đăng nhập hoặc mật khẩu không chính xác.");
         }
 
-        if (logout != null) {
+        if (logout != null && switchUser == null) {
             model.addAttribute("successMessage", "Bạn đã đăng xuất an toàn khỏi hệ thống.");
         }
 
         return "login";
+    }
+
+    @RequestMapping(value = "/logout", method = {RequestMethod.GET, RequestMethod.POST})
+    public String logoutPage(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+        if (authentication != null) {
+            new SecurityContextLogoutHandler().logout(request, response, authentication);
+        }
+        SecurityContextHolder.clearContext();
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+
+        // Xóa triệt để Cookie xác thực để đảm bảo đăng xuất hoàn toàn
+        Cookie jsessionCookie = new Cookie("JSESSIONID", "");
+        jsessionCookie.setPath("/");
+        jsessionCookie.setMaxAge(0);
+        jsessionCookie.setHttpOnly(true);
+        response.addCookie(jsessionCookie);
+
+        Cookie xsrfCookie = new Cookie("XSRF-TOKEN", "");
+        xsrfCookie.setPath("/");
+        xsrfCookie.setMaxAge(0);
+        response.addCookie(xsrfCookie);
+
+        return "redirect:/login?logout=true";
     }
 
     @GetMapping("/register")
@@ -115,6 +178,10 @@ public class AuthController {
         if (preAuthUser == null) {
             return "redirect:/login";
         }
+        if (bruteForceProtectionService.isAccountLocked(preAuthUser)) {
+            session.removeAttribute("PRE_AUTH_USER");
+            return "redirect:/login?locked=true";
+        }
         model.addAttribute("username", preAuthUser);
         return "2fa_verify";
     }
@@ -131,8 +198,20 @@ public class AuthController {
             return "redirect:/login";
         }
 
+        // Kiểm tra xem tài khoản có đang bị khóa không trước khi verify
+        if (bruteForceProtectionService.isAccountLocked(preAuthUser)) {
+            session.removeAttribute("PRE_AUTH_USER");
+            return "redirect:/login?locked=true";
+        }
+
         boolean isValid = twoFactorAuthService.verifyTotpCode(preAuthUser, code);
         if (!isValid) {
+            // Ghi nhận lần thử thất bại vào hệ thống chống brute-force
+            bruteForceProtectionService.recordFailedLogin(preAuthUser);
+            if (bruteForceProtectionService.isAccountLocked(preAuthUser)) {
+                session.removeAttribute("PRE_AUTH_USER");
+                return "redirect:/login?locked=true";
+            }
             model.addAttribute("username", preAuthUser);
             model.addAttribute("errorMessage", "Mã xác thực 2FA không chính xác hoặc đã hết hạn.");
             return "2fa_verify";

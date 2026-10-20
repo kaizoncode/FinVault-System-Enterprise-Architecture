@@ -16,6 +16,7 @@ public class LoanAmortizationScheduleDto implements Serializable {
 
     private Integer periodNumber;
     private LocalDate paymentDate;
+    private BigDecimal startingBalance;
     private BigDecimal principalPayment;
     private BigDecimal interestPayment;
     private BigDecimal totalPayment;
@@ -25,14 +26,24 @@ public class LoanAmortizationScheduleDto implements Serializable {
     }
 
     public LoanAmortizationScheduleDto(Integer periodNumber, LocalDate paymentDate,
+                                       BigDecimal startingBalance,
                                        BigDecimal principalPayment, BigDecimal interestPayment,
                                        BigDecimal totalPayment, BigDecimal remainingPrincipal) {
         this.periodNumber = periodNumber;
         this.paymentDate = paymentDate;
+        this.startingBalance = startingBalance;
         this.principalPayment = principalPayment;
         this.interestPayment = interestPayment;
         this.totalPayment = totalPayment;
         this.remainingPrincipal = remainingPrincipal;
+    }
+
+    public LoanAmortizationScheduleDto(Integer periodNumber, LocalDate paymentDate,
+                                       BigDecimal principalPayment, BigDecimal interestPayment,
+                                       BigDecimal totalPayment, BigDecimal remainingPrincipal) {
+        this(periodNumber, paymentDate,
+                (remainingPrincipal != null && principalPayment != null ? remainingPrincipal.add(principalPayment) : null),
+                principalPayment, interestPayment, totalPayment, remainingPrincipal);
     }
 
     public Integer getPeriodNumber() {
@@ -43,12 +54,29 @@ public class LoanAmortizationScheduleDto implements Serializable {
         this.periodNumber = periodNumber;
     }
 
+    // Alias getter & setter for flexible frontend compatibility
+    public Integer getMonthNumber() {
+        return periodNumber;
+    }
+
+    public void setMonthNumber(Integer monthNumber) {
+        this.periodNumber = monthNumber;
+    }
+
     public LocalDate getPaymentDate() {
         return paymentDate;
     }
 
     public void setPaymentDate(LocalDate paymentDate) {
         this.paymentDate = paymentDate;
+    }
+
+    public BigDecimal getStartingBalance() {
+        return startingBalance;
+    }
+
+    public void setStartingBalance(BigDecimal startingBalance) {
+        this.startingBalance = startingBalance;
     }
 
     public BigDecimal getPrincipalPayment() {
@@ -75,11 +103,29 @@ public class LoanAmortizationScheduleDto implements Serializable {
         this.totalPayment = totalPayment;
     }
 
+    // Alias getter & setter for flexible frontend compatibility
+    public BigDecimal getTotalMonthlyPayment() {
+        return totalPayment;
+    }
+
+    public void setTotalMonthlyPayment(BigDecimal totalMonthlyPayment) {
+        this.totalPayment = totalMonthlyPayment;
+    }
+
     public BigDecimal getRemainingPrincipal() {
         return remainingPrincipal;
     }
 
     public void setRemainingPrincipal(BigDecimal remainingPrincipal) {
         this.remainingPrincipal = remainingPrincipal;
+    }
+
+    // Alias getter & setter for flexible frontend compatibility
+    public BigDecimal getRemainingBalance() {
+        return remainingPrincipal;
+    }
+
+    public void setRemainingBalance(BigDecimal remainingBalance) {
+        this.remainingPrincipal = remainingBalance;
     }
 }

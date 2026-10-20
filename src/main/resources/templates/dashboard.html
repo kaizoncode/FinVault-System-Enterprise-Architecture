@@ -17,6 +17,11 @@
     <!-- Spring Security CSRF Meta Tags for AJAX Requests -->
     <meta th:if="${_csrf != null}" name="_csrf" th:content="${_csrf.token}"/>
     <meta th:if="${_csrf != null}" name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+    <!-- Immediate View Hash Shim: Đồng bộ hash trạng thái cho dashboard.js -->
+    <script>
+        window._initialViewHash = window.location.hash ? window.location.hash.replace(/^#/, '') : 'overview';
+    </script>
 </head>
 <body th:attr="data-username=${username}">
 
@@ -40,6 +45,7 @@
     </div>
     <div class="d-flex align-items-center gap-2 flex-shrink-0">
         <span th:if="${isSuperAdmin}" class="badge bg-light text-dark cursor-pointer"
+              data-bs-toggle="modal" data-bs-target="#editConfigModal"
               th:data-key="'SYSTEM_BANNER_MESSAGE'"
               th:data-val="${bannerMessage}"
               th:data-group="'SYSTEM_NOTIFICATION'"
@@ -85,20 +91,50 @@
 
         <div class="collapse navbar-collapse" id="topNavbarContent">
             <!-- Left Nav Links -->
-            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3" id="mainDashboardNav">
                 <li class="nav-item">
-                    <a class="nav-link active fw-semibold text-primary" th:href="@{/dashboard}">
+                    <a class="nav-link active fw-semibold text-primary" href="#overview" data-view="overview" onclick="switchDashboardView('overview'); return false;">
                         <i class="bi bi-speedometer2 me-1"></i> Tổng Quan
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#wallets" data-view="wallets" onclick="switchDashboardView('wallets'); return false;">
+                        <i class="bi bi-wallet2 me-1"></i> Ví & Quỹ
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#transactions" data-view="transactions" onclick="switchDashboardView('transactions'); return false;">
+                        <i class="bi bi-clock-history me-1"></i> Giao Dịch
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#budgets" data-view="budgets" onclick="switchDashboardView('budgets'); return false;">
+                        <i class="bi bi-pie-chart me-1"></i> Ngân Sách
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#saving-goals" data-view="saving-goals" onclick="switchDashboardView('saving-goals'); return false;">
+                        <i class="bi bi-piggy-bank me-1"></i> Tiết Kiệm
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#loan-calculator" data-view="loan-calculator" onclick="switchDashboardView('loan-calculator'); return false;">
+                        <i class="bi bi-calculator me-1"></i> Tính Khoản Vay
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link fw-semibold text-secondary" href="#bi-analytics" data-view="bi-analytics" onclick="switchDashboardView('bi-analytics'); return false;">
+                        <i class="bi bi-bar-chart-line me-1"></i> Báo Cáo BI
+                    </a>
+                </li>
                 <li th:if="${isFamilyHead or isSuperAdmin}" class="nav-item">
-                    <a class="nav-link fw-semibold text-success" href="#family-approval-section" onclick="smoothScrollTo('family-approval-section'); return false;">
+                    <a class="nav-link fw-semibold text-success" href="#family-approval" data-view="family-approval" onclick="switchDashboardView('family-approval'); return false;">
                         <i class="bi bi-people-fill me-1"></i> Quỹ Gia Đình
                         <span class="badge bg-danger rounded-pill ms-1" id="nav-pending-badge" th:if="${#lists.size(pendingApprovals) > 0}" th:text="${#lists.size(pendingApprovals)}">0</span>
                     </a>
                 </li>
                 <li th:if="${isSystemAuditor or isSuperAdmin}" class="nav-item">
-                    <a class="nav-link fw-semibold text-danger" href="#auditor-monitor-section" onclick="smoothScrollTo('auditor-monitor-section'); return false;">
+                    <a class="nav-link fw-semibold text-danger" href="#auditor-monitor" data-view="auditor-monitor" onclick="switchDashboardView('auditor-monitor'); return false;">
                         <i class="bi bi-fingerprint me-1"></i> Giám Sát Kiểm Toán
                     </a>
                 </li>
@@ -123,44 +159,83 @@
                         <span th:if="${isFamilyHead}" class="badge bg-success ms-1">Gia Trưởng</span>
                         <span th:if="${isStandardUser}" class="badge bg-primary ms-1">User</span>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2">
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-3 mt-2" style="min-width: 260px; max-height: 75vh; overflow-y: auto;">
                         <li class="dropdown-header">
                             <div class="fw-bold text-dark" th:text="${username}">user</div>
                             <div class="small text-muted" th:text="${currentUser != null ? currentUser.email : ''}">user@finvault.com</div>
                         </li>
                         <li><hr class="dropdown-divider"></li>
+                        <li class="dropdown-header small text-muted text-uppercase fw-bold">Chức Năng Cá Nhân:</li>
                         <li>
-                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createWalletModal">
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createWalletModal" onclick="openModal('createWalletModal')">
                                 <i class="bi bi-wallet2 text-primary me-2"></i> Tạo Ví Mới
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransactionModal">
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransactionModal" onclick="openModal('quickTransactionModal')">
                                 <i class="bi bi-plus-circle text-success me-2"></i> Thêm Giao Dịch Nhanh
                             </button>
                         </li>
                         <li>
-                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransferModal">
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#quickTransferModal" onclick="openModal('quickTransferModal')">
                                 <i class="bi bi-arrow-left-right text-primary me-2"></i> Chuyển Tiền Liên Ví
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createBudgetModal" onclick="openModal('createBudgetModal')">
+                                <i class="bi bi-pie-chart text-warning me-2"></i> Thiết Lập Ngân Sách
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createSavingGoalModal" onclick="openModal('createSavingGoalModal')">
+                                <i class="bi bi-piggy-bank text-success me-2"></i> Tạo Quỹ Tiết Kiệm
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#createCategoryModal" onclick="openModal('createCategoryModal')">
+                                <i class="bi bi-tags text-info me-2"></i> Quản Lý Danh Mục
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#reconciliationModal" onclick="openReconciliationModal()">
+                                <i class="bi bi-shield-check text-success me-2"></i> Đối Soát Sổ Cái Ví
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#importExcelModal" onclick="openModal('importExcelModal')">
+                                <i class="bi bi-file-earmark-excel text-success me-2"></i> Nhập Giao Dịch Excel
+                            </button>
+                        </li>
+                        <li>
+                            <button class="dropdown-item d-flex align-items-center" data-bs-toggle="modal" data-bs-target="#twoFactorModal" onclick="openTwoFactorModal()">
+                                <i class="bi bi-shield-lock text-danger me-2"></i> Cài Đặt Bảo Mật 2FA
                             </button>
                         </li>
                         <li><hr class="dropdown-divider"></li>
                         <li class="dropdown-header small text-muted text-uppercase">Chuyển Tài Khoản Thử Nghiệm:</li>
-                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-shield-shaded text-danger me-2"></i>admin (Super Admin)</a></li>
-                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-fingerprint text-dark me-2"></i>auditor (Auditor)</a></li>
-                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-people text-success me-2"></i>family_head (Gia Trưởng)</a></li>
-                        <li><a class="dropdown-item small" th:href="@{/login}"><i class="bi bi-person text-primary me-2"></i>user1 (Standard User)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login(switchUser='admin')}"><i class="bi bi-shield-shaded text-danger me-2"></i>admin (Super Admin)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login(switchUser='auditor')}"><i class="bi bi-fingerprint text-dark me-2"></i>auditor (Auditor)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login(switchUser='family_head')}"><i class="bi bi-people text-success me-2"></i>family_head (Gia Trưởng)</a></li>
+                        <li><a class="dropdown-item small" th:href="@{/login(switchUser='user1')}"><i class="bi bi-person text-primary me-2"></i>user1 (Standard User)</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li>
-                            <form id="logoutForm" th:action="@{/logout}" method="post" style="display:none;">
+                            <form id="dropdownLogoutForm" th:action="@{/logout}" method="post" class="m-0 p-0">
                                 <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                                <button type="submit" class="dropdown-item text-danger fw-bold d-flex align-items-center cursor-pointer border-0 bg-transparent w-100 text-start py-2">
+                                    <i class="bi bi-box-arrow-right me-2"></i> Đăng Xuất An Toàn
+                                </button>
                             </form>
-                            <a class="dropdown-item text-danger d-flex align-items-center cursor-pointer" href="javascript:void(0)" onclick="document.getElementById('logoutForm').submit();">
-                                <i class="bi bi-box-arrow-right me-2"></i> Đăng Xuất An Toàn
-                            </a>
                         </li>
                     </ul>
                 </div>
+
+                <!-- Nút Đăng Xuất Trực Tiếp Nổi Bật Trên Top Navbar (Form POST Thuần Tự Chủ Không Phụ Thuộc JS) -->
+                <form id="topNavbarLogoutForm" th:action="@{/logout}" method="post" class="d-inline m-0 p-0">
+                    <input th:if="${_csrf != null}" type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+                    <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold d-flex align-items-center shadow-sm" id="topNavbarLogoutBtn" title="Đăng xuất an toàn khỏi hệ thống">
+                        <i class="bi bi-box-arrow-right me-1"></i> Đăng Xuất
+                    </button>
+                </form>
             </div>
         </div>
     </div>
@@ -170,7 +245,7 @@
 <main class="container-fluid px-3 px-lg-4 py-4">
 
     <!-- KPI STAT CARDS ROW -->
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4" id="kpi-cards-row">
         <!-- Card 1: Tổng số dư khả dụng -->
         <div class="col-12 col-sm-6 col-xl-3">
             <div class="dashboard-card p-3 p-xl-4 h-100">
@@ -252,14 +327,130 @@
     </div>
 
     <!-- ===================================================================== -->
+    <!-- DYNAMIC VIEW HEADER BANNER (Hiển thị khi chuyển chế độ xem chuyên sâu) -->
+    <!-- ===================================================================== -->
+    <div id="dashboard-view-header" class="dashboard-card p-3 p-md-4 mb-4 border-start border-4 border-primary" style="display: none;">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div class="d-flex align-items-center">
+                <div id="view-header-icon-box" class="p-3 bg-primary-subtle text-primary rounded-3 me-3 fs-3 d-flex align-items-center justify-content-center" style="width: 52px; height: 52px;">
+                    <i class="bi bi-wallet2" id="view-header-icon"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <span class="badge bg-primary" id="view-header-badge">Chuyên Mục</span>
+                        <h4 class="fw-bold text-dark mb-0" id="view-header-title">Tên Chuyên Mục</h4>
+                    </div>
+                    <p class="text-muted small mb-0" id="view-header-desc">Mô tả nghiệp vụ của phân hệ tài chính</p>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap" id="view-header-actions">
+                <button type="button" class="btn btn-outline-secondary btn-sm fw-semibold shadow-sm" onclick="switchDashboardView('overview')">
+                    <i class="bi bi-grid-fill me-1"></i> Xem Toàn Cảnh (Tổng Quan)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
     <!-- 5. KHỐI IN-PLACE RBAC: GIA TRƯỞNG (ROLE_FAMILY_HEAD / SUPER_ADMIN)    -->
     <!-- ===================================================================== -->
     <div th:if="${isFamilyHead or isSuperAdmin}" id="family-approval-section" class="mb-4">
+
+        <!-- KHỐI 1: QUỸ & VÍ TÀI CHÍNH GIA ĐÌNH -->
+        <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <div class="card-header bg-white py-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center border-bottom-0">
+                <div class="d-flex align-items-center mb-2 mb-sm-0">
+                    <div class="p-2 bg-success-subtle rounded-3 text-success me-3">
+                        <i class="bi bi-wallet2 fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0 text-dark">Tổng Quan Quỹ Chung & Ví Tài Chính Gia Đình</h5>
+                        <p class="text-muted small mb-0">Quản lý số dư, hạn mức chi tiêu thành viên và phân bổ nguồn tiền sinh hoạt chung</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-sm btn-outline-success fw-semibold" data-bs-toggle="modal" data-bs-target="#createWalletModal" onclick="openCreateFamilyWalletModal()">
+                        <i class="bi bi-plus-circle me-1"></i>Tạo Quỹ Gia Đình Mới
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#quickTransferModal" onclick="openFamilyTransferModal()">
+                        <i class="bi bi-arrow-left-right me-1"></i>Chuyển Tiền Vào Quỹ
+                    </button>
+                    <button type="button" class="btn btn-sm btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#quickTransactionModal" onclick="openFamilyTransactionModal()">
+                        <i class="bi bi-plus-lg me-1"></i>Tạo Giao Dịch Từ Quỹ
+                    </button>
+                </div>
+            </div>
+            <div class="card-body pt-0">
+                <!-- Danh sách các quỹ gia đình -->
+                <div th:if="${not #lists.isEmpty(familyWallets)}" class="row g-3">
+                    <div th:each="fw : ${familyWallets}" class="col-12 col-md-6 col-lg-4">
+                        <div class="dashboard-card p-3 h-100 d-flex flex-column wallet-card family-fund-card border border-success-subtle shadow-sm">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge bg-success">
+                                    <i class="bi bi-people-fill me-1"></i>QUỸ GIA ĐÌNH
+                                </span>
+                                <small class="text-muted font-monospace" th:text="${fw.currency}">VND</small>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1 text-truncate" th:text="${fw.walletName}">Quỹ Chi Tiêu Chung</h6>
+                            <h4 class="fw-bold text-success mb-2" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                                th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(fw.balance, 0, 'COMMA', 0, 'POINT') + ' ' + fw.currency)}">15,000,000 VND</h4>
+
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-speedometer me-1"></i>Hạn mức chi tiêu tháng:
+                                <strong class="text-dark" th:text="${fw.monthlySpendingLimit != null and fw.monthlySpendingLimit.compareTo(T(java.math.BigDecimal).ZERO) > 0 ? (#numbers.formatDecimal(fw.monthlySpendingLimit, 0, 'COMMA', 0, 'POINT') + ' ' + fw.currency) : 'Không giới hạn'}">Không giới hạn</strong>
+                            </div>
+                            <div class="small text-muted mb-1">
+                                <i class="bi bi-person-badge me-1"></i>Chủ sở hữu / Gia trưởng:
+                                <strong class="text-dark" th:text="${fw.ownerUsername != null ? fw.ownerUsername : username}">Gia Trưởng</strong>
+                            </div>
+                            <div class="small text-muted mb-2">
+                                <i class="bi bi-people me-1"></i>Thành viên tham gia:
+                                <strong class="text-dark" th:text="${fw.members != null ? #lists.size(fw.members) : 0} + ' thành viên'">1 thành viên</strong>
+                            </div>
+
+                            <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center flex-wrap gap-1">
+                                <button type="button" class="btn btn-xs btn-success py-1 px-2 small fw-semibold"
+                                        data-bs-toggle="modal" data-bs-target="#quickTransactionModal"
+                                        th:data-wallet-id="${fw.id}"
+                                        onclick="openFamilyTransactionModal(this.getAttribute('data-wallet-id'))">
+                                    <i class="bi bi-plus-lg me-1"></i>Chi Tiêu Quỹ
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-primary py-1 px-2 small fw-semibold"
+                                        data-bs-toggle="modal" data-bs-target="#quickTransferModal"
+                                        th:data-wallet-id="${fw.id}"
+                                        onclick="openFamilyTransferModal(this.getAttribute('data-wallet-id'))">
+                                    <i class="bi bi-arrow-down-left me-1"></i>Chuyển Vào Quỹ
+                                </button>
+                                <button type="button" class="btn btn-xs btn-outline-secondary py-1 px-2 small"
+                                        data-bs-toggle="modal" data-bs-target="#reconciliationModal"
+                                        th:data-wallet-id="${fw.id}"
+                                        th:data-wallet-name="${fw.walletName}"
+                                        onclick="openReconciliationForWallet(this.getAttribute('data-wallet-id'), this.getAttribute('data-wallet-name'))">
+                                    <i class="bi bi-shield-check me-1"></i>Đối Soát
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty state khi chưa có quỹ gia đình -->
+                <div th:if="${#lists.isEmpty(familyWallets)}" class="alert alert-light border rounded-3 p-4 text-center mb-0">
+                    <i class="bi bi-people text-success fs-1 d-block mb-2"></i>
+                    <h6 class="fw-bold text-dark">Chưa Có Quỹ Chung Gia Đình Nào Được Khởi Tạo</h6>
+                    <p class="text-muted small mb-3">Tạo Quỹ Gia Đình (FAMILY_FUND) để các thành viên có thể chi tiêu chung và gửi yêu cầu phê duyệt khi giao dịch vượt ngưỡng (≥ 5.000.000 VND).</p>
+                    <button type="button" class="btn btn-sm btn-success fw-semibold" data-bs-toggle="modal" data-bs-target="#createWalletModal" onclick="openCreateFamilyWalletModal()">
+                        <i class="bi bi-plus-circle me-1"></i>Tạo Quỹ Gia Đình Mới
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- KHỐI 2: BẢNG PHÊ DUYỆT CHI TIÊU GIA ĐÌNH -->
         <div class="card border-0 shadow-sm rounded-4 border-start border-4 border-success">
             <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-bottom-0">
                 <div class="d-flex align-items-center">
                     <div class="p-2 bg-success-subtle rounded-3 text-success me-3">
-                        <i class="bi bi-people-fill fs-5"></i>
+                        <i class="bi bi-shield-lock-fill fs-5"></i>
                     </div>
                     <div>
                         <h5 class="fw-bold mb-0 text-dark">Bảng Phê Duyệt Chi Tiêu Gia Đình (Ngưỡng &ge; 5.000.000 VND)</h5>
@@ -305,11 +496,13 @@
                             <td th:text="${tx.note}">Mua sắm thiết bị gia đình</td>
                             <td class="text-end pe-4">
                                 <button type="button" class="btn btn-sm btn-success fw-semibold me-1 shadow-sm"
-                                        th:onclick="'decideFamilyTransaction(' + ${tx.id} + ', true)'">
+                                        th:data-tx-id="${tx.id}"
+                                        onclick="decideFamilyTransaction(this.getAttribute('data-tx-id'), true)">
                                     <i class="bi bi-check-lg me-1"></i>Phê Duyệt
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger fw-semibold shadow-sm"
-                                        th:onclick="'decideFamilyTransaction(' + ${tx.id} + ', false)'">
+                                        th:data-tx-id="${tx.id}"
+                                        onclick="decideFamilyTransaction(this.getAttribute('data-tx-id'), false)">
                                     <i class="bi bi-x-lg me-1"></i>Từ Chối
                                 </button>
                             </td>
@@ -369,7 +562,8 @@
                                         <td class="small text-muted" th:text="${#temporals.format(user.lockedUntil, 'dd/MM HH:mm')}">--</td>
                                         <td th:if="${isSuperAdmin}" class="text-end">
                                             <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 small"
-                                                    th:onclick="'unlockUserAccount(\'' + ${user.username} + '\')'">
+                                                    th:data-username="${user.username}"
+                                                    onclick="unlockUserAccount(this.getAttribute('data-username'))">
                                                 Mở khóa
                                             </button>
                                         </td>
@@ -464,6 +658,7 @@
                             <td class="small text-muted" th:text="${cfg.description}">Mô tả cấu hình</td>
                             <td class="text-end">
                                 <button type="button" class="btn btn-sm btn-outline-primary"
+                                        data-bs-toggle="modal" data-bs-target="#editConfigModal"
                                         th:data-key="${cfg.configKey}"
                                         th:data-val="${cfg.configValue}"
                                         th:data-group="${cfg.configGroup}"
@@ -511,7 +706,9 @@
                                 <td class="small text-muted" th:text="${#temporals.format(item.deletedAt, 'dd/MM/yyyy HH:mm')}">--</td>
                                 <td class="text-end">
                                     <button type="button" class="btn btn-sm btn-success py-0 px-2 fw-semibold"
-                                            th:onclick="'restoreSoftDeletedItem(\'' + ${item.itemType} + '\', ' + ${item.itemId} + ')'">
+                                            th:data-item-type="${item.itemType}"
+                                            th:data-item-id="${item.itemId}"
+                                            onclick="restoreSoftDeletedItem(this.getAttribute('data-item-type'), this.getAttribute('data-item-id'))">
                                         <i class="bi bi-arrow-counterclockwise me-1"></i>Khôi Phục
                                     </button>
                                 </td>
@@ -527,47 +724,62 @@
     <!-- ===================================================================== -->
     <!-- 8. KHỐI TÀI CHÍNH CÁ NHÂN & BI CHUNG CHO TẤT CẢ NGƯỜI DÙNG            -->
     <!-- ===================================================================== -->
-    <div class="row g-4">
+    <div class="row g-4" id="main-dashboard-row">
         <!-- CỘT TRÁI (8 Cột): Ví, Biểu đồ BI Chart.js, Sổ cái Giao dịch -->
-        <div class="col-12 col-xl-8">
+        <div class="col-12 col-xl-8" id="dashboard-col-left">
 
             <!-- Danh sách Ví Tài Chính -->
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="fw-bold text-dark mb-0 d-flex align-items-center">
-                    <i class="bi bi-wallet2 text-primary me-2"></i>Ví & Quỹ Tài Chính Của Bạn
-                </h5>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#createWalletModal">
-                        <i class="bi bi-wallet-fill me-1"></i>Tạo Ví Mới
-                    </button>
-                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickTransferModal">
-                        <i class="bi bi-arrow-left-right me-1"></i>Chuyển Tiền Liên Ví
-                    </button>
-                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#quickTransactionModal">
-                        <i class="bi bi-plus-lg me-1"></i>Giao Dịch Mới
-                    </button>
+            <div id="wallets-module-container" class="dashboard-module-block mb-4">
+                <div id="wallets-section" class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0 d-flex align-items-center">
+                        <i class="bi bi-wallet2 text-primary me-2"></i>Ví & Quỹ Tài Chính Của Bạn
+                    </h5>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#reconciliationModal" onclick="openReconciliationModal()">
+                            <i class="bi bi-shield-check me-1"></i>Đối Soát Sổ Cái
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#createWalletModal" onclick="openModal('createWalletModal')">
+                            <i class="bi bi-wallet-fill me-1"></i>Tạo Ví Mới
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#quickTransferModal" onclick="openModal('quickTransferModal')">
+                            <i class="bi bi-arrow-left-right me-1"></i>Chuyển Tiền Liên Ví
+                        </button>
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#quickTransactionModal" onclick="openModal('quickTransactionModal')">
+                            <i class="bi bi-plus-lg me-1"></i>Giao Dịch Mới
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <div class="row g-3 mb-4">
-                <div th:each="w : ${wallets}" class="col-12 col-md-6 col-lg-4">
-                    <div class="dashboard-card p-3 h-100" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'wallet-card family-fund-card' : 'wallet-card'}">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <span class="badge" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'bg-success' : 'bg-primary'}" th:text="${w.walletType}">CASH</span>
-                            <small class="text-muted" th:text="${w.currency}">VND</small>
-                        </div>
-                        <h6 class="fw-bold text-dark mb-1 text-truncate" th:text="${w.walletName}">Ví Tiền Mặt</h6>
-                        <h4 class="fw-bold text-dark mb-2" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
-                            th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency)}">8,500,000 VND</h4>
-                        <div class="small text-muted" th:if="${w.accountNumber != null}">
-                            STK: <span class="font-monospace" th:text="${isSystemAuditor ? '****8901' : w.accountNumber}">1903456789</span>
+                <div class="row g-3">
+                    <div th:each="w : ${wallets}" class="col-12 col-md-6 col-lg-4">
+                        <div class="dashboard-card p-3 h-100 d-flex flex-column" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'wallet-card family-fund-card' : 'wallet-card'}">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="badge" th:classappend="${w.walletType == 'FAMILY_FUND' ? 'bg-success' : 'bg-primary'}" th:text="${w.walletType}">CASH</span>
+                                <small class="text-muted" th:text="${w.currency}">VND</small>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1 text-truncate" th:text="${w.walletName}">Ví Tiền Mặt</h6>
+                            <h4 class="fw-bold text-dark mb-2" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
+                                th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency)}">8,500,000 VND</h4>
+                            <div class="small text-muted mb-2" th:if="${w.bankAccountNumber != null}">
+                                STK: <span class="font-monospace" th:text="${isSystemAuditor ? '****8901' : w.bankAccountNumber}">1903456789</span>
+                            </div>
+                            <div class="mt-auto pt-2 border-top d-flex justify-content-between align-items-center">
+                                <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 small"
+                                        data-bs-toggle="modal" data-bs-target="#reconciliationModal"
+                                        th:data-wallet-id="${w.id}"
+                                        th:data-wallet-name="${w.walletName}"
+                                        onclick="openReconciliationForWallet(this.getAttribute('data-wallet-id'), this.getAttribute('data-wallet-name'))">
+                                    <i class="bi bi-shield-check me-1"></i>Đối Soát
+                                </button>
+                                <span class="text-muted small" th:text="${w.currency}">VND</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- BI Chart.js Visualizations (Tabbed) -->
-            <div class="dashboard-card p-4 mb-4">
+            <div id="bi-analytics-section" class="dashboard-card p-4 mb-4 dashboard-module-block">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3">
                     <div>
                         <h5 class="fw-bold text-dark mb-0">Biểu Đồ Phân Tích Dòng Tiền (BI Analytics)</h5>
@@ -598,17 +810,23 @@
             </div>
 
             <!-- Sổ cái 10 Giao dịch gần nhất & Export -->
-            <div class="dashboard-card p-4">
+            <div id="transactions-section" class="dashboard-card p-4 dashboard-module-block">
                 <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3">
                     <div>
                         <h5 class="fw-bold text-dark mb-0">Lịch Sử Giao Dịch Gần Nhất</h5>
                         <p class="text-muted small mb-0">Giao dịch được bảo vệ ACID và chống Race Condition</p>
                     </div>
                     <div class="d-flex gap-2 mt-2 mt-sm-0">
-                        <a th:href="@{/api/reports/transactions/export/excel}" class="btn btn-sm btn-outline-success">
+                        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#quickTransactionModal" onclick="openModal('quickTransactionModal')">
+                            <i class="bi bi-plus-lg me-1"></i>Giao Dịch Mới
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importExcelModal" onclick="openModal('importExcelModal')">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i>Nhập Excel
+                        </button>
+                        <a th:href="@{/api/reports/export/excel}" class="btn btn-sm btn-outline-success">
                             <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
                         </a>
-                        <a th:href="@{/api/reports/financial-statement/pdf}" class="btn btn-sm btn-outline-danger">
+                        <a th:href="@{/api/reports/export/pdf}" class="btn btn-sm btn-outline-danger">
                             <i class="bi bi-file-earmark-pdf me-1"></i>Báo Cáo PDF
                         </a>
                     </div>
@@ -624,13 +842,14 @@
                             <th>Số Tiền</th>
                             <th>Ngày Giao Dịch</th>
                             <th>Trạng Thái</th>
+                            <th class="text-end pe-3">Thao Tác</th>
                         </tr>
                         </thead>
                         <tbody>
                         <tr th:if="${#lists.isEmpty(recentTransactions)}">
-                            <td colspan="6" class="text-center text-muted py-4">Chưa có giao dịch nào được ghi nhận.</td>
+                            <td colspan="7" class="text-center text-muted py-4">Chưa có giao dịch nào được ghi nhận.</td>
                         </tr>
-                        <tr th:each="tx : ${recentTransactions}">
+                        <tr th:each="tx : ${recentTransactions}" th:id="'tx-row-' + ${tx.id}">
                             <td>
                                 <span class="badge" th:classappend="${tx.transactionType == 'INCOME' ? 'bg-success-subtle text-success' : (tx.transactionType == 'EXPENSE' ? 'bg-danger-subtle text-danger' : 'bg-primary-subtle text-primary')}"
                                       th:text="${tx.transactionType}">INCOME</span>
@@ -651,6 +870,13 @@
                                 <span class="badge" th:classappend="${tx.approvalStatus == 'APPROVED' ? 'bg-success' : (tx.approvalStatus == 'PENDING' ? 'bg-warning text-dark' : 'bg-danger')}"
                                       th:text="${tx.approvalStatus}">APPROVED</span>
                             </td>
+                            <td class="text-end pe-3">
+                                <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small"
+                                        th:data-tx-id="${tx.id}"
+                                        onclick="deleteTransaction(this.getAttribute('data-tx-id'))" title="Xóa giao dịch và hoàn tiền ví">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </td>
                         </tr>
                         </tbody>
                     </table>
@@ -659,10 +885,10 @@
         </div>
 
         <!-- CỘT PHẢI (4 Cột): Điểm CFP, Ngân sách 50/30/20, Quỹ Tiết Kiệm, Cơ cấu chi -->
-        <div class="col-12 col-xl-4">
+        <div class="col-12 col-xl-4" id="dashboard-col-right">
 
             <!-- Widget 1: Điểm Sức Khỏe Tài Chính CFP 4 Trụ Cột -->
-            <div class="dashboard-card p-4 mb-4">
+            <div id="cfp-health-score-widget" class="dashboard-card p-4 mb-4 dashboard-module-block">
                 <h5 class="fw-bold text-dark mb-3">Sức Khỏe Tài Chính (CFP)</h5>
                 <div class="d-flex align-items-center mb-3">
                     <div class="health-score-circle me-3"
@@ -712,24 +938,48 @@
             </div>
 
             <!-- Widget 2: Ngân Sách Thông Minh 50/30/20 (Có Live WebSocket Updates) -->
-            <div class="dashboard-card p-4 mb-4">
+            <div id="budgets-section" class="dashboard-card p-4 mb-4 dashboard-module-block">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="fw-bold text-dark mb-0">Ngân Sách 50/30/20</h5>
-                    <span class="badge bg-light text-dark border">
-                        <i class="bi bi-broadcast text-danger me-1"></i>Live STOMP
-                    </span>
+                    <div>
+                        <h5 class="fw-bold text-dark mb-0">Ngân Sách 50/30/20</h5>
+                        <small class="text-muted"><i class="bi bi-broadcast text-danger me-1"></i>Live STOMP Alert</small>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button type="button" class="btn btn-xs btn-outline-primary py-0 px-2 small fw-semibold" data-bs-toggle="modal" data-bs-target="#createBudgetModal" onclick="openModal('createBudgetModal')">
+                            <i class="bi bi-plus-lg me-1"></i>Tạo Ngân Sách
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-warning text-dark py-0 px-2 small fw-semibold" data-bs-toggle="modal" data-bs-target="#create503020Modal" onclick="openModal('create503020Modal')">
+                            <i class="bi bi-magic me-1"></i>Gói 50/30/20
+                        </button>
+                    </div>
                 </div>
 
-                <div th:if="${#lists.isEmpty(activeBudgets)}" class="text-center text-muted py-3 small">
-                    Chưa kích hoạt gói ngân sách 50/30/20.
+                <div th:if="${#lists.isEmpty(activeBudgets)}" class="text-center text-muted py-4 small bg-light rounded-3 border">
+                    <i class="bi bi-pie-chart text-warning fs-3 d-block mb-2"></i>
+                    <div>Chưa kích hoạt gói ngân sách 50/30/20.</div>
+                    <div class="mt-2">
+                        <button type="button" class="btn btn-sm btn-primary me-1" data-bs-toggle="modal" data-bs-target="#create503020Modal" onclick="openModal('create503020Modal')">
+                            <i class="bi bi-magic me-1"></i>Kích hoạt 50/30/20
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#createBudgetModal" onclick="openModal('createBudgetModal')">
+                            Tạo ngân sách riêng
+                        </button>
+                    </div>
                 </div>
 
-                <div th:each="b : ${activeBudgets}" class="mb-3">
+                <div th:each="b : ${activeBudgets}" class="mb-3 p-2 bg-light rounded-3 border" th:id="'budget-card-' + ${b.id}">
                     <div class="d-flex justify-content-between align-items-center mb-1 small">
                         <span class="fw-semibold text-dark" th:text="${b.budgetName}">Thiết Yếu (Needs 50%)</span>
-                        <span th:id="'budget-percent-' + ${b.id}" class="badge"
-                              th:classappend="${b.spentPercentage >= 100 ? 'bg-danger' : (b.spentPercentage >= 80 ? 'bg-warning text-dark' : 'bg-primary')}"
-                              th:text="${#numbers.formatDecimal(b.spentPercentage, 1, 1)} + '%'">45.3%</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <span th:id="'budget-percent-' + ${b.id}" class="badge"
+                                  th:classappend="${b.spentPercentage >= 100 ? 'bg-danger' : (b.spentPercentage >= 80 ? 'bg-warning text-dark' : 'bg-primary')}"
+                                  th:text="${#numbers.formatDecimal(b.spentPercentage, 1, 1)} + '%'">45.3%</span>
+                            <button type="button" class="btn btn-link text-danger p-0 ms-1 small" title="Xóa ngân sách này"
+                                    th:data-budget-id="${b.id}"
+                                    onclick="deleteBudget(this.getAttribute('data-budget-id'))">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="progress progress-budget mb-1">
                         <div th:id="'budget-progress-' + ${b.id}"
@@ -743,18 +993,27 @@
                         <span th:id="'budget-spent-' + ${b.id}" th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
                               th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(b.currentSpent, 0, 'COMMA', 0, 'POINT') + ' VND')}">6,800,000 VND</span>
                         <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
-                              th:text="'Trần: ' + (isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(b.limitAmount, 0, 'COMMA', 0, 'POINT') + ' VND'))">Trần: 15,000,000 VND</span>
+                              th:text="${isSystemAuditor ? 'Trần: ***,*** VND' : ('Trần: ' + #numbers.formatDecimal(b.limitAmount, 0, 'COMMA', 0, 'POINT') + ' VND')}">Trần: 15,000,000 VND</span>
                     </div>
                 </div>
             </div>
 
             <!-- Widget 3: Quỹ Mục Tiêu Tiết Kiệm (Saving Goals) -->
-            <div class="dashboard-card p-4 mb-4">
-                <h5 class="fw-bold text-dark mb-3">Mục Tiêu Tiết Kiệm</h5>
-                <div th:if="${#lists.isEmpty(savingGoals)}" class="text-center text-muted py-3 small">
-                    Chưa tạo mục tiêu tiết kiệm nào.
+            <div id="saving-goals-section" class="dashboard-card p-4 mb-4 dashboard-module-block">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold text-dark mb-0">Mục Tiêu Tiết Kiệm</h5>
+                    <button type="button" class="btn btn-xs btn-outline-success py-0 px-2 small fw-semibold" data-bs-toggle="modal" data-bs-target="#createSavingGoalModal" onclick="openModal('createSavingGoalModal')">
+                        <i class="bi bi-plus-lg me-1"></i>Tạo Mục Tiêu
+                    </button>
                 </div>
-                <div th:each="g : ${savingGoals}" class="mb-3 p-3 bg-light rounded-3 border">
+                <div th:if="${#lists.isEmpty(savingGoals)}" class="text-center text-muted py-4 small bg-light rounded-3 border">
+                    <i class="bi bi-piggy-bank text-success fs-3 d-block mb-2"></i>
+                    <div>Chưa tạo mục tiêu tiết kiệm nào.</div>
+                    <button type="button" class="btn btn-sm btn-success mt-2" data-bs-toggle="modal" data-bs-target="#createSavingGoalModal" onclick="openModal('createSavingGoalModal')">
+                        <i class="bi bi-plus-circle me-1"></i>Tạo Quỹ Tiết Kiệm Mới
+                    </button>
+                </div>
+                <div th:each="g : ${savingGoals}" class="mb-3 p-3 bg-light rounded-3 border" th:id="'goal-card-' + ${g.id}">
                     <div class="d-flex justify-content-between align-items-center mb-1">
                         <strong class="text-dark small" th:text="${g.goalName}">Quỹ Dự Phòng</strong>
                         <span class="badge bg-success" th:text="${g.status}">IN_PROGRESS</span>
@@ -769,19 +1028,137 @@
                         <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
                               th:text="${isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(g.currentAmount, 0, 'COMMA', 0, 'POINT') + ' VND')}">45,000,000 VND</span>
                         <span th:classappend="${isSystemAuditor ? 'masked-data' : ''}"
-                              th:text="'Mục tiêu: ' + (isSystemAuditor ? '***,*** VND' : (#numbers.formatDecimal(g.targetAmount, 0, 'COMMA', 0, 'POINT') + ' VND'))">100,000,000 VND</span>
+                              th:text="${isSystemAuditor ? 'Mục tiêu: ***,*** VND' : ('Mục tiêu: ' + #numbers.formatDecimal(g.targetAmount, 0, 'COMMA', 0, 'POINT') + ' VND')}">100,000,000 VND</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
+                        <button type="button" class="btn btn-xs btn-success py-0 px-2 small fw-semibold"
+                                data-bs-toggle="modal" data-bs-target="#contributeSavingGoalModal"
+                                th:data-goal-id="${g.id}"
+                                th:data-goal-name="${g.goalName}"
+                                onclick="openContributeModal(this.getAttribute('data-goal-id'), this.getAttribute('data-goal-name'))">
+                            <i class="bi bi-plus-circle me-1"></i>Nạp Tiền
+                        </button>
+                        <button type="button" class="btn btn-xs btn-outline-danger py-0 px-2 small"
+                                th:data-goal-id="${g.id}"
+                                onclick="deleteSavingGoal(this.getAttribute('data-goal-id'))">
+                            <i class="bi bi-trash me-1"></i>Hủy
+                        </button>
                     </div>
                 </div>
             </div>
 
             <!-- Widget 4: Tỷ Trọng Chi Tiêu Theo Danh Mục (Doughnut Chart) -->
-            <div class="dashboard-card p-4">
+            <div id="category-breakdown-widget" class="dashboard-card p-4 dashboard-module-block">
                 <h5 class="fw-bold text-dark mb-3">Cơ Cấu Chi Tiêu (Danh Mục)</h5>
                 <div style="height: 220px; position: relative;">
                     <canvas id="categoryDoughnutChart"></canvas>
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- 8. LOAN CALCULATOR SECTION -->
+    <div id="loan-calculator-section" class="row mt-4 dashboard-module-block">
+        <div class="col-12">
+            <div class="dashboard-card p-4">
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3 border-bottom pb-3 gap-2">
+                    <div>
+                        <h5 class="fw-bold text-dark mb-1">
+                            <i class="bi bi-calculator text-primary me-2"></i>Tính Toán Kế Hoạch Vay Vốn & Trả Nợ Ngân Hàng
+                        </h5>
+                        <p class="text-muted small mb-0">Công cụ hoạch định tài chính, tính lịch trình trả góp Niên kim cố định và Dư nợ giảm dần chuẩn xác.</p>
+                    </div>
+                </div>
+
+                <form id="loanCalculatorForm" class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Tên Khoản Vay *</label>
+                        <input type="text" class="form-control" id="loanTitle" placeholder="Ví dụ: Vay mua nhà, Vay mua xe, Vay kinh doanh..." required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Số Tiền Vay (VND) *</label>
+                        <input type="number" class="form-control" id="loanPrincipal" placeholder="Ví dụ: 100000000" min="1000000" step="1000000" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Lãi Suất Năm (%) *</label>
+                        <input type="number" class="form-control" id="loanInterestRate" placeholder="Ví dụ: 8.5" min="0.01" max="100" step="0.1" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Thời Hạn Vay (Tháng) *</label>
+                        <input type="number" class="form-control" id="loanTermMonths" placeholder="Ví dụ: 24" min="1" max="480" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Ngày Giải Ngân / Bắt Đầu *</label>
+                        <input type="date" class="form-control" id="loanStartDate" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Phương Thức Tính Lãi *</label>
+                        <select class="form-select" id="loanCalculationMethod" required>
+                            <option value="EQUAL_INSTALLMENTS">Niên kim cố định (Trả đều mỗi tháng)</option>
+                            <option value="REDUCING_BALANCE">Dư nợ giảm dần (Gốc đều, Lãi giảm dần)</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end gap-2">
+                        <button type="reset" class="btn btn-light btn-sm"><i class="bi bi-arrow-counterclockwise me-1"></i>Đặt Lại</button>
+                        <button type="submit" class="btn btn-primary btn-sm fw-semibold"><i class="bi bi-calculator me-1"></i>Tính Lịch Trả Nợ</button>
+                    </div>
+                </form>
+
+                <!-- Kết quả tính toán -->
+                <div id="loanResultContainer" class="mt-4 pt-3 border-top" style="display: none;">
+                    <div class="row g-3 mb-4">
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="text-muted small d-block mb-1">Gốc Vay Ban Đầu</span>
+                                <span id="resLoanPrincipal" class="fw-bold text-dark fs-5">0 VND</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="text-muted small d-block mb-1">Tiền Trả Hàng Tháng (Đầu Kỳ)</span>
+                                <span id="resLoanMonthly" class="fw-bold text-primary fs-5">0 VND</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="text-muted small d-block mb-1">Tổng Tiền Lãi Phải Trả</span>
+                                <span id="resLoanTotalInterest" class="fw-bold text-danger fs-5">0 VND</span>
+                            </div>
+                        </div>
+                        <div class="col-sm-6 col-xl-3">
+                            <div class="p-3 bg-light rounded-3 border">
+                                <span class="text-muted small d-block mb-1">Tổng Thanh Toán (Gốc + Lãi)</span>
+                                <span id="resLoanTotalPayable" class="fw-bold text-success fs-5">0 VND</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="fw-bold text-dark mb-0"><i class="bi bi-calendar3 me-1"></i>Lịch Trình Trả Góp Chi Tiết Từng Kỳ</h6>
+                        <span id="resLoanScheduleCount" class="badge bg-secondary">0 kỳ</span>
+                    </div>
+
+                    <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                        <table class="table table-sm table-hover align-middle mb-0 font-monospace small">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Kỳ</th>
+                                    <th>Ngày Đến Hạn</th>
+                                    <th class="text-end">Dư Nợ Đầu Kỳ</th>
+                                    <th class="text-end">Tiền Gốc</th>
+                                    <th class="text-end">Tiền Lãi</th>
+                                    <th class="text-end">Tổng Trả</th>
+                                    <th class="text-end">Dư Nợ Còn Lại</th>
+                                </tr>
+                            </thead>
+                            <tbody id="loanScheduleTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
         </div>
     </div>
 </main>
@@ -808,7 +1185,7 @@
         <div class="modal-content border-0 shadow rounded-4">
             <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-wallet2 text-success me-2"></i>Khởi Tạo Ví Tài Chính Mới</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('createWalletModal')" aria-label="Close"></button>
             </div>
             <form id="createWalletForm">
                 <div class="modal-body">
@@ -840,7 +1217,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('createWalletModal')">Hủy</button>
                     <button type="submit" class="btn btn-success fw-semibold"><i class="bi bi-wallet2 me-1"></i>Tạo Ví Mới</button>
                 </div>
             </form>
@@ -854,7 +1231,7 @@
         <div class="modal-content border-0 shadow rounded-4">
             <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle text-primary me-2"></i>Thêm Giao Dịch Mới</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('quickTransactionModal')" aria-label="Close"></button>
             </div>
             <form id="quickTransactionForm">
                 <div class="modal-body">
@@ -874,7 +1251,7 @@
                     <div class="mb-3">
                         <label class="form-label small fw-semibold">Danh Mục Thu Chi</label>
                         <select class="form-select" id="txCategoryId" required>
-                            <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.categoryName}">Danh mục</option>
+                            <option th:each="c : ${categories}" th:value="${c.id}" th:attr="data-type=${c.categoryType}" th:text="${c.categoryName + ' [' + (c.categoryType.name() == 'INCOME' ? 'Thu nhập' : 'Chi tiêu') + ']'}">Danh mục</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -891,7 +1268,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('quickTransactionModal')">Hủy</button>
                     <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-check2-circle me-1"></i>Lưu Giao Dịch</button>
                 </div>
             </form>
@@ -905,7 +1282,7 @@
         <div class="modal-content border-0 shadow rounded-4">
             <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-arrow-left-right text-primary me-2"></i>Chuyển Tiền Liên Ví</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('quickTransferModal')" aria-label="Close"></button>
             </div>
             <form id="quickTransferForm">
                 <div class="modal-body">
@@ -934,7 +1311,7 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('quickTransferModal')">Hủy</button>
                     <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-arrow-left-right me-1"></i>Xác Nhận Chuyển</button>
                 </div>
             </form>
@@ -948,7 +1325,7 @@
         <div class="modal-content border-0 shadow rounded-4">
             <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title fw-bold text-dark"><i class="bi bi-sliders text-danger me-2"></i>Chỉnh Sửa Tham Số Hệ Thống</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('editConfigModal')" aria-label="Close"></button>
             </div>
             <form id="liveConfigForm">
                 <div class="modal-body">
@@ -970,10 +1347,449 @@
                     </div>
                 </div>
                 <div class="modal-footer border-top-0 pt-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('editConfigModal')">Hủy</button>
                     <button type="submit" class="btn btn-danger fw-semibold"><i class="bi bi-save me-1"></i>Lưu Thời Gian Thực</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 4: CREATE BUDGET -->
+<div class="modal fade" id="createBudgetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-pie-chart text-primary me-2"></i>Thiết Lập Ngân Sách Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('createBudgetModal')" aria-label="Close"></button>
+            </div>
+            <form id="createBudgetForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên Ngân Sách *</label>
+                        <input type="text" class="form-control" id="newBudgetName" placeholder="Ví dụ: Ăn uống gia đình, Tiền nhà & điện nước..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại Ngân Sách *</label>
+                        <select class="form-select" id="newBudgetType" required>
+                            <option value="CUSTOM">Ngân Sách Tự Định Nghĩa (CUSTOM)</option>
+                            <option value="RULE_50_30_20">Thuộc Gói Quy Tắc 50/30/20 (RULE_50_30_20)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="budgetAllocationGroup">
+                        <label class="form-label small fw-semibold">Nhóm Phân Bổ (Quy tắc 50/30/20)</label>
+                        <select class="form-select" id="newBudgetAllocationType">
+                            <option value="NEEDS">50% Nhu cầu thiết yếu (NEEDS)</option>
+                            <option value="WANTS">30% Sở thích & Cá nhân (WANTS)</option>
+                            <option value="SAVINGS">20% Tích lũy tiết kiệm (SAVINGS)</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="budgetCategoryGroup">
+                        <label class="form-label small fw-semibold">Danh Mục Áp Dụng</label>
+                        <select class="form-select" id="newBudgetCategoryId">
+                            <option value="">-- Chọn danh mục --</option>
+                            <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.categoryName}">Danh mục</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="budgetWalletGroup">
+                        <label class="form-label small fw-semibold">Ví Áp Dụng (Tùy chọn)</label>
+                        <select class="form-select" id="newBudgetWalletId">
+                            <option value="">-- Tất cả ví (Toàn hệ thống) --</option>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Hạn Mức Ngân Sách (VND) *</label>
+                        <input type="number" class="form-control" id="newBudgetAllocatedAmount" placeholder="Ví dụ: 5000000" min="1000" step="1000" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ngày Bắt Đầu *</label>
+                            <input type="date" class="form-control" id="newBudgetStartDate" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ngày Kết Thúc *</label>
+                            <input type="date" class="form-control" id="newBudgetEndDate" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('createBudgetModal')">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-check2-circle me-1"></i>Lưu Ngân Sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 5: 50/30/20 BUDGET PACKAGE -->
+<div class="modal fade" id="create503020Modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-magic text-warning me-2"></i>Kích Hoạt Gói Ngân Sách 50/30/20</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('create503020Modal')" aria-label="Close"></button>
+            </div>
+            <form id="create503020Form">
+                <div class="modal-body">
+                    <div class="alert alert-warning small py-2">
+                        <strong>Quy tắc Tỷ lệ vàng 50/30/20:</strong>
+                        <ul class="mb-0 ps-3 mt-1">
+                            <li><strong>50% Thiết yếu (Needs):</strong> Ăn uống, thuê nhà, điện nước sinh hoạt.</li>
+                            <li><strong>30% Sở thích (Wants):</strong> Mua sắm, vui chơi giải trí, ẩm thực.</li>
+                            <li><strong>20% Tích lũy (Savings):</strong> Tiết kiệm quỹ khẩn cấp, trả nợ hoặc đầu tư.</li>
+                        </ul>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tổng Thu Nhập Hàng Tháng (VND) *</label>
+                        <input type="number" class="form-control" id="pkg503020Income" placeholder="Ví dụ: 20000000" min="1000000" step="500000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Áp Dụng Cho Ví</label>
+                        <select class="form-select" id="pkg503020WalletId">
+                            <option value="">-- Tất cả ví cá nhân --</option>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ngày Bắt Đầu *</label>
+                            <input type="date" class="form-control" id="pkg503020StartDate" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold">Ngày Kết Thúc *</label>
+                            <input type="date" class="form-control" id="pkg503020EndDate" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('create503020Modal')">Hủy</button>
+                    <button type="submit" class="btn btn-warning fw-semibold"><i class="bi bi-lightning-charge-fill me-1"></i>Tự Động Tạo 3 Ngân Sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 6: CREATE SAVING GOAL -->
+<div class="modal fade" id="createSavingGoalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-piggy-bank text-success me-2"></i>Tạo Quỹ Mục Tiêu Tiết Kiệm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('createSavingGoalModal')" aria-label="Close"></button>
+            </div>
+            <form id="createSavingGoalForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên Mục Tiêu Tiết Kiệm *</label>
+                        <input type="text" class="form-control" id="newGoalName" placeholder="Ví dụ: Mua Macbook M3, Du lịch Nhật Bản, Quỹ khẩn cấp..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tiền Mục Tiêu Cần Tích Lũy (VND) *</label>
+                        <input type="number" class="form-control" id="newGoalTargetAmount" placeholder="Ví dụ: 30000000" min="100000" step="100000" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tiền Đã Có Sẵn (VND)</label>
+                        <input type="number" class="form-control" id="newGoalInitialAmount" placeholder="0" min="0" step="50000" value="0">
+                    </div>
+                    <div class="mb-3" id="savingGoalSourceWalletGroup">
+                        <label class="form-label small fw-semibold">Trích tiền ban đầu từ Ví (Nếu số tiền > 0)</label>
+                        <select class="form-select" id="newGoalWalletId">
+                            <option value="">-- Không trích từ ví (Bắt đầu từ 0) --</option>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName + ' (Dư: ' + #numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency + ')'}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ngày Dự Kiến Hoàn Thành *</label>
+                        <input type="date" class="form-control" id="newGoalTargetDate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ghi Chú Động Lực</label>
+                        <input type="text" class="form-control" id="newGoalNotes" placeholder="Ví dụ: Trích 15% lương mỗi tháng để đạt mục tiêu">
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('createSavingGoalModal')">Hủy</button>
+                    <button type="submit" class="btn btn-success fw-semibold"><i class="bi bi-plus-circle me-1"></i>Tạo Mục Tiêu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 7: CONTRIBUTE / DEPOSIT TO SAVING GOAL -->
+<div class="modal fade" id="contributeSavingGoalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-plus-circle-fill text-success me-2"></i>Nạp Tiền Vào Mục Tiêu Tiết Kiệm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('contributeSavingGoalModal')" aria-label="Close"></button>
+            </div>
+            <form id="contributeSavingGoalForm">
+                <input type="hidden" id="depositGoalId">
+                <div class="modal-body">
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <span class="text-muted small d-block">Mục tiêu tích lũy:</span>
+                        <strong id="depositGoalNameText" class="text-dark fs-6">Quỹ Mục Tiêu</strong>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Trích Từ Ví Tài Chính *</label>
+                        <select class="form-select" id="depositSourceWalletId" required>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName + ' (Dư: ' + #numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency + ')'}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Số Tiền Nạp (VND, tối thiểu 10,000 VND) *</label>
+                        <input type="number" class="form-control" id="depositAmount" placeholder="Ví dụ: 500000" min="10000" step="10000" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('contributeSavingGoalModal')">Hủy</button>
+                    <button type="submit" class="btn btn-success fw-semibold"><i class="bi bi-cash-stack me-1"></i>Xác Nhận Nạp Tiền</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 8: CREATE CATEGORY -->
+<div class="modal fade" id="createCategoryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-tags text-primary me-2"></i>Thêm Danh Mục Thu Chi Mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('createCategoryModal')" aria-label="Close"></button>
+            </div>
+            <form id="createCategoryForm">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Tên Danh Mục *</label>
+                        <input type="text" class="form-control" id="newCategoryName" placeholder="Ví dụ: Học phí & Khóa học, Đầu tư chứng khoán, Thú cưng..." required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Loại Danh Mục *</label>
+                        <select class="form-select" id="newCategoryType" required>
+                            <option value="EXPENSE">Chi tiêu (Expense)</option>
+                            <option value="INCOME">Thu nhập (Income)</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-8">
+                            <label class="form-label small fw-semibold">Icon Biểu Tượng (Bootstrap Icons)</label>
+                            <input type="text" class="form-control font-monospace" id="newCategoryIcon" value="bi-tag" placeholder="bi-tag, bi-book, bi-heart...">
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label small fw-semibold">Màu Sắc</label>
+                            <input type="color" class="form-control form-control-color w-100" id="newCategoryColor" value="#0d6efd" title="Chọn màu danh mục">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('createCategoryModal')">Hủy</button>
+                    <button type="submit" class="btn btn-primary fw-semibold"><i class="bi bi-plus-circle me-1"></i>Tạo Danh Mục</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 9: IMPORT EXCEL TRANSACTIONS -->
+<div class="modal fade" id="importExcelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-file-earmark-excel text-success me-2"></i>Nhập Giao Dịch Từ File Excel</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('importExcelModal')" aria-label="Close"></button>
+            </div>
+            <form id="importExcelForm">
+                <div class="modal-body">
+                    <div class="alert alert-info small py-2">
+                        <i class="bi bi-info-circle me-1"></i>Định dạng Excel hỗ trợ: Cột 1 (Ngày YYYY-MM-DD), Cột 2 (Loại: EXPENSE/INCOME), Cột 3 (Số tiền), Cột 4 (Danh mục), Cột 5 (Ghi chú).
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Ví Tài Chính Tiếp Nhận *</label>
+                        <select class="form-select" id="importWalletId" required>
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Chọn File Excel (.xlsx) *</label>
+                        <input type="file" class="form-control" id="importExcelFile" accept=".xlsx, .xls" required>
+                    </div>
+                    <div id="importResultFeedback" class="small mt-2" style="display: none;"></div>
+                </div>
+                <div class="modal-footer border-top-0 pt-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('importExcelModal')">Hủy</button>
+                    <button type="submit" class="btn btn-success fw-semibold"><i class="bi bi-upload me-1"></i>Tải Lên & Xử Lý</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 10: WALLET RECONCILIATION -->
+<div class="modal fade" id="reconciliationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-check text-info me-2"></i>Đối Soát Sổ Cái Tài Chính (Reconciliation)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('reconciliationModal')" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 align-items-end mb-3">
+                    <div class="col-md-8">
+                        <label class="form-label small fw-semibold">Chọn Ví Tài Chính Cần Đối Soát</label>
+                        <select class="form-select" id="reconcileWalletSelect">
+                            <option th:each="w : ${wallets}" th:value="${w.id}" th:text="${w.walletName + ' (Dư: ' + #numbers.formatDecimal(w.balance, 0, 'COMMA', 0, 'POINT') + ' ' + w.currency + ')'}">Ví</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button type="button" class="btn btn-info text-white w-100 fw-semibold" onclick="runWalletReconciliation()">
+                            <i class="bi bi-arrow-repeat me-1"></i>Kiểm Tra Sổ Cái
+                        </button>
+                    </div>
+                </div>
+
+                <div id="reconciliationResultContainer" style="display: none;">
+                    <div id="reconcileStatusBadge" class="alert mb-3 py-2 small fw-semibold"></div>
+                    <div class="row g-2 font-monospace small">
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Số Dư Ban Đầu</span>
+                                <strong id="recInitialBalance">0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Tổng Thu Nhập (+)</span>
+                                <strong id="recTotalIncome" class="text-success">+0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Tổng Chuyển Đến (+)</span>
+                                <strong id="recTransfersIn" class="text-success">+0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Tổng Chi Tiêu (-)</span>
+                                <strong id="recTotalExpense" class="text-danger">-0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Tổng Chuyển Đi (-)</span>
+                                <strong id="recTransfersOut" class="text-danger">-0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <div class="p-2 bg-light rounded border">
+                                <span class="text-muted d-block" style="font-size:0.75rem;">Dòng Tiền Ròng (Net Flow)</span>
+                                <strong id="recNetFlow">0 VND</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-2 mt-2 font-monospace">
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border text-center">
+                                <span class="text-muted small d-block">Số Dư Sổ Sách Tính Toán</span>
+                                <strong id="recCalculatedBalance" class="fs-5 text-primary">0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border text-center">
+                                <span class="text-muted small d-block">Số Dư Thực Tế Trong Ví</span>
+                                <strong id="recActualBalance" class="fs-5 text-dark">0 VND</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 bg-light rounded border text-center">
+                                <span class="text-muted small d-block">Chênh Lệch (Discrepancy)</span>
+                                <strong id="recDiscrepancy" class="fs-5">0 VND</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('reconciliationModal')">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 11: TWO FACTOR AUTHENTICATION SETTINGS -->
+<div class="modal fade" id="twoFactorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold text-dark"><i class="bi bi-shield-lock text-warning me-2"></i>Bảo Mật 2 Lớp (2FA TOTP)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" onclick="closeModal('twoFactorModal')" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Status Badge -->
+                <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded-3 mb-3 border">
+                    <div>
+                        <strong class="text-dark small d-block">Trạng thái bảo mật 2FA</strong>
+                        <span id="twoFactorStatusText" class="small text-muted">Đang kiểm tra...</span>
+                    </div>
+                    <span id="twoFactorStatusBadge" class="badge bg-secondary">Unknown</span>
+                </div>
+
+                <!-- Setup Container (when 2FA is OFF) -->
+                <div id="twoFactorSetupContainer" style="display: none;">
+                    <div id="twoFactorInitialStep" class="text-center py-2">
+                        <p class="small text-muted mb-3">Sử dụng Google Authenticator hoặc Microsoft Authenticator để bảo vệ tài khoản khỏi truy cập trái phép.</p>
+                        <button type="button" class="btn btn-primary fw-semibold" onclick="initiateTwoFactorSetup()">
+                            <i class="bi bi-qr-code-scan me-1"></i>Bắt Đầu Thiết Lập 2FA
+                        </button>
+                    </div>
+
+                    <div id="twoFactorQrStep" style="display: none;">
+                        <div class="text-center mb-3">
+                            <p class="small text-muted mb-2">Quét mã QR dưới đây bằng Google Authenticator:</p>
+                            <img id="twoFactorQrImage" src="" alt="2FA QR Code" class="img-fluid border rounded p-2 bg-white" style="max-height: 180px;">
+                            <div class="mt-2">
+                                <span class="text-muted small d-block">Hoặc nhập thủ công Secret Key:</span>
+                                <code id="twoFactorSecretKey" class="fw-bold text-danger fs-6 user-select-all"></code>
+                            </div>
+                        </div>
+
+                        <!-- Scratch Codes Container -->
+                        <div class="alert alert-warning py-2 small mb-3">
+                            <div class="fw-bold mb-1"><i class="bi bi-key-fill me-1"></i>Mã dự phòng (Scratch Codes - Lưu lại ngay):</div>
+                            <div id="twoFactorScratchCodes" class="font-monospace text-dark" style="font-size: 0.8rem; word-break: break-all;"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label small fw-semibold">Nhập Mã Xác Thực 6 Số Từ Ứng Dụng *</label>
+                            <input type="text" class="form-control text-center font-monospace fs-5 letter-spacing-1" id="twoFactorConfirmCode" placeholder="000000" maxlength="6">
+                        </div>
+                        <button type="button" class="btn btn-success w-100 fw-semibold" onclick="confirmEnableTwoFactor()">
+                            <i class="bi bi-shield-check me-1"></i>Xác Nhận & Kích Hoạt 2FA
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Disable Container (when 2FA is ON) -->
+                <div id="twoFactorDisableContainer" style="display: none;">
+                    <div class="alert alert-success small py-2 mb-3">
+                        <i class="bi bi-shield-fill-check me-1"></i>Tài khoản của bạn đang được bảo vệ bởi xác thực 2 lớp.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Nhập Mã OTP (hoặc Scratch Code) Để Tắt 2FA *</label>
+                        <input type="text" class="form-control text-center font-monospace fs-5" id="twoFactorDisableCode" placeholder="Mã 6 số hoặc mã dự phòng">
+                    </div>
+                    <button type="button" class="btn btn-outline-danger w-100 fw-semibold" onclick="disableTwoFactor()">
+                        <i class="bi bi-shield-x me-1"></i>Hủy Kích Hoạt 2FA
+                    </button>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0 pt-0">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal" onclick="closeModal('twoFactorModal')">Đóng</button>
+            </div>
         </div>
     </div>
 </div>
@@ -984,9 +1800,9 @@
 <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.6.1/dist/sockjs.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
-<!-- Custom App Scripts -->
-<script th:src="@{/js/websocket-alerts.js}" src="/js/websocket-alerts.js"></script>
-<script th:src="@{/js/dashboard.js}" src="/js/dashboard.js"></script>
+<!-- Custom App Scripts with Cache Busting -->
+<script th:src="@{/js/websocket-alerts.js(v=${#dates.createNow().time})}" src="/js/websocket-alerts.js"></script>
+<script th:src="@{/js/dashboard.js(v=${#dates.createNow().time})}" src="/js/dashboard.js"></script>
 
 </body>
 </html>

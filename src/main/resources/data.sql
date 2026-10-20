@@ -11,14 +11,14 @@ MERGE INTO roles (id, role_name, description) KEY(role_name) VALUES
 (4, 'ROLE_STANDARD_USER', 'Người dùng cá nhân chuẩn, quản lý ví và ngân sách cá nhân');
 
 -- 2. SEED USERS (BCrypt hashed credentials)
-MERGE INTO app_users KEY(username) VALUES
-(1, 'admin', 'admin@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Nguyễn Quản Trị Viên', '0901234567', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
-(2, 'auditor', 'auditor@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Trần Kiểm Toán Viên', '0912345678', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
-(3, 'family_head', 'family@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Lê Gia Trưởng', '0923456789', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
-(4, 'user1', 'user1@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Phạm Người Dùng Chuẩn', '0934567890', FALSE, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0);
+MERGE INTO app_users (id, username, email, password_hash, full_name, phone_number, is_two_factor_enabled, two_factor_secret, pending_two_factor_secret, scratch_codes, failed_login_attempts, locked_until, is_active, created_at, updated_at, created_by, updated_by, is_deleted, version) KEY(username) VALUES
+(1, 'admin', 'admin@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Nguyễn Quản Trị Viên', '0901234567', FALSE, NULL, NULL, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
+(2, 'auditor', 'auditor@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Trần Kiểm Toán Viên', '0912345678', FALSE, NULL, NULL, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
+(3, 'family_head', 'family@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Lê Gia Trưởng', '0923456789', FALSE, NULL, NULL, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0),
+(4, 'user1', 'user1@finvault.com', '$2a$10$FEC/MeKwGq.y2xqlubzip.hpxujNVsafXGpVXLR2Z92WHQ3rlp5VG', 'Phạm Người Dùng Chuẩn', '0934567890', FALSE, NULL, NULL, NULL, 0, NULL, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'SYSTEM', 'SYSTEM', FALSE, 0);
 
 -- 3. SEED USER_ROLES MAPPING
-MERGE INTO user_roles KEY(user_id, role_id) VALUES
+MERGE INTO user_roles (user_id, role_id) KEY(user_id, role_id) VALUES
 (1, 1), -- admin -> ROLE_SUPER_ADMIN
 (2, 2), -- auditor -> ROLE_SYSTEM_AUDITOR
 (3, 3), -- family_head -> ROLE_FAMILY_HEAD
@@ -85,15 +85,6 @@ MERGE INTO audit_logs (id, actor_username, actor_role, action, target_module, en
 (1, 'SYSTEM', 'ROLE_SUPER_ADMIN', 'SYSTEM_INITIALIZATION', 'SYSTEM', 'system_configs', 1, NULL, 'Cấu hình mặc định ban đầu được khởi tạo thành công.', '127.0.0.1', 'FinVault Bootstrapper', CURRENT_TIMESTAMP, 'SUCCESS', NULL),
 (2, 'admin', 'ROLE_SUPER_ADMIN', 'RBAC_BOOTSTRAP', 'SECURITY_IAM', 'roles', 4, NULL, 'Khởi tạo 4 nhóm phân quyền chuẩn: Super Admin, Auditor, Family Head, Standard User.', '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0)', CURRENT_TIMESTAMP, 'SUCCESS', NULL);
 
--- 13. TÁI THIẾT LẬP DÃY SEQUENCE IDENTITY (BẮT ĐẦU TỪ 1000 ĐỂ TRÁNH XUNG ĐỘT PRIMARY KEY)
-ALTER TABLE roles ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE app_users ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE categories ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE wallets ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE wallet_members ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE transactions ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE budgets ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE saving_goals ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE system_configs ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE system_notifications ALTER COLUMN id RESTART WITH 1000;
-ALTER TABLE audit_logs ALTER COLUMN id RESTART WITH 1000;
+-- 13. DÃY SEQUENCE IDENTITY ĐƯỢC TỰ ĐỘNG ĐỒNG BỘ ĐỘNG THEO MAX(ID) + 1 BỞI DatabaseSequenceSynchronizer
+-- (Tránh triệt để lỗi xung đột Primary Key 'key: 1000' khi khởi động lại ứng dụng với cơ sở dữ liệu đã có sẵn)
+

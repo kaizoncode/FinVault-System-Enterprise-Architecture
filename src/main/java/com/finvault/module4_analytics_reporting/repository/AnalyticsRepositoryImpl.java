@@ -222,7 +222,7 @@ public class AnalyticsRepositoryImpl implements AnalyticsRepository {
         Map<String, Object> params = new HashMap<>();
 
         if (userId != null) {
-            jpql.append("AND t.user.id = :userId ");
+            jpql.append("AND (t.user.id = :userId OR t.wallet.user.id = :userId OR EXISTS (SELECT wm FROM WalletMember wm WHERE wm.wallet = t.wallet AND wm.user.id = :userId AND wm.isActive = true)) ");
             params.put("userId", userId);
         }
 
@@ -248,7 +248,7 @@ public class AnalyticsRepositoryImpl implements AnalyticsRepository {
                 params.put("endDateTime", filter.getEndDate().atTime(LocalTime.MAX));
             }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
-                jpql.append("AND LOWER(t.description) LIKE :keyword ");
+                jpql.append("AND LOWER(t.note) LIKE :keyword ");
                 params.put("keyword", "%" + filter.getKeyword().trim().toLowerCase() + "%");
             }
         }

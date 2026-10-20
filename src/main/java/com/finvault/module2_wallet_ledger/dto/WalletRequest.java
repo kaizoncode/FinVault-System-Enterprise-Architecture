@@ -1,6 +1,7 @@
 package com.finvault.module2_wallet_ledger.dto;
 
 import com.finvault.module2_wallet_ledger.entity.WalletType;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -25,6 +26,7 @@ public class WalletRequest implements Serializable {
     @NotNull(message = "Loại ví không được để trống")
     private WalletType walletType;
 
+    @DecimalMin(value = "0.00", message = "Số dư ban đầu không được âm")
     private BigDecimal initialBalance = BigDecimal.ZERO;
 
     private String currency = "VND";
@@ -33,6 +35,7 @@ public class WalletRequest implements Serializable {
 
     private String bankName;
 
+    @DecimalMin(value = "0.00", message = "Hạn mức chi tiêu không được âm")
     private BigDecimal monthlySpendingLimit = BigDecimal.ZERO;
 
     public WalletRequest() {

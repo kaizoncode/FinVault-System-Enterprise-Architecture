@@ -61,25 +61,38 @@ public class BruteForceProtectionService {
      */
     @Transactional
     public void recordFailedLogin(String username) {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+
+        // Issue 2: Nếu tài khoản đang trong trạng thái bị khóa, KHÔNG reset timer và không tăng attempts
+        if (isAccountLocked(username)) {
+            return;
+        }
+
         Optional<User> userOpt = findUserByUsernameOrEmail(username);
         if (userOpt.isEmpty()) {
             return;
         }
 
         User user = userOpt.get();
-        int newAttempts = (user.getFailedLoginAttempts() != null ? user.getFailedLoginAttempts() : 0) + 1;
-        user.setFailedLoginAttempts(newAttempts);
+        String canonicalUsername = user.getUsername();
 
-        if (newAttempts >= maxFailedAttempts) {
+        // Issue 3: Chống Race Condition bằng atomic query thay cho read-modify-write
+        userRepository.incrementFailedLoginAttempts(canonicalUsername);
+
+        // Truy vấn lại sau khi đã increment atomic để kiểm tra ngưỡng khóa
+        User updatedUser = userRepository.findByUsernameAndIsDeletedFalse(canonicalUsername).orElse(user);
+        int currentAttempts = (updatedUser.getFailedLoginAttempts() != null) ? updatedUser.getFailedLoginAttempts() : 0;
+
+        if (currentAttempts >= maxFailedAttempts) {
             LocalDateTime lockUntil = LocalDateTime.now().plusMinutes(lockDurationMinutes);
-            user.setLockedUntil(lockUntil);
+            userRepository.lockUserAccount(canonicalUsername, lockUntil);
             log.warn("CẢNH BÁO BẢO MẬT: Tài khoản [{}] đã bị KHÓA trong {} phút do nhập sai mật khẩu {} lần liên tiếp!",
-                    username, lockDurationMinutes, newAttempts);
+                    canonicalUsername, lockDurationMinutes, currentAttempts);
         } else {
-            log.info("Người dùng [{}] nhập sai mật khẩu lần thứ {}/{}", username, newAttempts, maxFailedAttempts);
+            log.info("Người dùng [{}] nhập sai mật khẩu lần thứ {}/{}", canonicalUsername, currentAttempts, maxFailedAttempts);
         }
-
-        userRepository.save(user);
     }
 
     /**

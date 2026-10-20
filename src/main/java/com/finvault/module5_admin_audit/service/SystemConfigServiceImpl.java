@@ -73,7 +73,7 @@ public class SystemConfigServiceImpl implements SystemConfigService {
     @Override
     @Auditable(action = "UPDATE_SYSTEM_CONFIG", module = "SYSTEM_CONFIG", entityName = "system_configs")
     public SystemConfigResponseDto updateConfig(String key, String adminUsername, SystemConfigRequest request) {
-        log.info("Admin [{}] cập nhật cấu hình [{}] giá trị mới: [{}]", key, adminUsername, request.getConfigValue());
+        log.info("Admin [{}] cập nhật cấu hình [{}] giá trị mới: [{}]", adminUsername, key, request.getConfigValue());
 
         SystemConfig config = configRepository.findByConfigKey(key)
                 .orElseThrow(() -> new BusinessException("CONFIG_NOT_FOUND", "Không tìm thấy cấu hình với khóa: " + key));

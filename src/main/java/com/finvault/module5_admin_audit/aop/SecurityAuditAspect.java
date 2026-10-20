@@ -1,7 +1,7 @@
 package com.finvault.module5_admin_audit.aop;
 
 import com.finvault.module5_admin_audit.entity.AuditLog;
-import com.finvault.module5_admin_audit.repository.AuditLogRepository;
+import com.finvault.module5_admin_audit.service.AuditLogPersistenceService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
  * - Tự động trích xuất Client IP (hỗ trợ X-Forwarded-For) và User-Agent từ ServletContext
  * - Lọc và làm sạch dữ liệu nhạy cảm (Sanitization) trước khi lưu vết CLOB vào Database
  * - Đảm bảo khi phát sinh lỗi/ngoại lệ, vết thất bại vẫn được ghi nhận đầy đủ với failure_reason
+ *   qua AuditLogPersistenceService (Propagation.REQUIRES_NEW) để không bao giờ bị rollback cuốn trôi.
  * ==============================================================================
  */
 @Aspect
@@ -36,10 +37,10 @@ public class SecurityAuditAspect {
 
     private static final Logger log = LoggerFactory.getLogger(SecurityAuditAspect.class);
 
-    private final AuditLogRepository auditLogRepository;
+    private final AuditLogPersistenceService auditLogPersistenceService;
 
-    public SecurityAuditAspect(AuditLogRepository auditLogRepository) {
-        this.auditLogRepository = auditLogRepository;
+    public SecurityAuditAspect(AuditLogPersistenceService auditLogPersistenceService) {
+        this.auditLogPersistenceService = auditLogPersistenceService;
     }
 
     @Around("@annotation(auditable)")
@@ -102,7 +103,11 @@ public class SecurityAuditAspect {
                     "SUCCESS",
                     null
             );
-            auditLogRepository.save(auditLog);
+            try {
+                auditLogPersistenceService.saveAuditLog(auditLog);
+            } catch (Exception ex) {
+                log.error("AOP Audit: Lỗi khi lưu vết audit thành công: {}", ex.getMessage());
+            }
 
             log.info("AOP Audit: [{}] đã thực hiện thành công hành động [{}] trên module [{}]",
                     actorUsername, action, module);
@@ -128,7 +133,11 @@ public class SecurityAuditAspect {
                     "FAILED",
                     failureReason
             );
-            auditLogRepository.save(failLog);
+            try {
+                auditLogPersistenceService.saveAuditLog(failLog);
+            } catch (Exception ex) {
+                log.error("AOP Audit: Lỗi khi lưu vết audit thất bại: {}", ex.getMessage());
+            }
 
             log.warn("AOP Audit: [{}] thực hiện THẤT BẠI hành động [{}]: {}",
                     actorUsername, action, failureReason);

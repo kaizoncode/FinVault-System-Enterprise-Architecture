@@ -36,8 +36,16 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String usernameOrEmail) throws UsernameNotFoundException {
-        User user = userRepository.findByUsernameAndIsDeletedFalse(usernameOrEmail)
-                .or(() -> userRepository.findByEmailAndIsDeletedFalse(usernameOrEmail))
+        if (usernameOrEmail == null || usernameOrEmail.isBlank()) {
+            throw new UsernameNotFoundException("Tên đăng nhập hoặc email không được để trống");
+        }
+        String cleanInput = usernameOrEmail.trim();
+        String lowerInput = cleanInput.toLowerCase();
+
+        User user = userRepository.findByUsernameAndIsDeletedFalse(cleanInput)
+                .or(() -> userRepository.findByUsernameAndIsDeletedFalse(lowerInput))
+                .or(() -> userRepository.findByEmailAndIsDeletedFalse(lowerInput))
+                .or(() -> userRepository.findByEmailAndIsDeletedFalse(cleanInput))
                 .orElseThrow(() -> {
                     log.warn("Đăng nhập thất bại: Không tìm thấy tài khoản '{}'", usernameOrEmail);
                     return new UsernameNotFoundException("Tài khoản hoặc mật khẩu không chính xác: " + usernameOrEmail);

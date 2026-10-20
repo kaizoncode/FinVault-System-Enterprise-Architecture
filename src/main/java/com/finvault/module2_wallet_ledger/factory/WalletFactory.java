@@ -40,6 +40,14 @@ public class WalletFactory {
         BigDecimal initialBalance = (request.getInitialBalance() != null)
                 ? request.getInitialBalance()
                 : BigDecimal.ZERO;
+
+        if (initialBalance.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Số dư ban đầu không được âm");
+        }
+        if (request.getMonthlySpendingLimit() != null && request.getMonthlySpendingLimit().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Hạn mức chi tiêu không được âm");
+        }
+
         String currency = (request.getCurrency() != null && !request.getCurrency().isBlank())
                 ? request.getCurrency().trim().toUpperCase()
                 : "VND";
@@ -48,6 +56,7 @@ public class WalletFactory {
         wallet.setUser(owner);
         wallet.setWalletName(request.getWalletName().trim());
         wallet.setWalletType(request.getWalletType());
+        wallet.setInitialBalance(initialBalance);
         wallet.setBalance(initialBalance);
         wallet.setCurrency(currency);
         wallet.setIsActive(true);
@@ -57,10 +66,18 @@ public class WalletFactory {
             case BANK -> configureBankWallet(wallet, request);
             case CREDIT_CARD -> configureCreditCardWallet(wallet, request);
             case FAMILY_FUND -> configureFamilyFundWallet(wallet, owner, request);
+            case SAVINGS -> configureSavingsWallet(wallet, request);
             default -> throw new BusinessException("UNSUPPORTED_WALLET_TYPE", "Loại ví không được hỗ trợ: " + request.getWalletType());
         }
 
         return wallet;
+    }
+
+    private void configureSavingsWallet(Wallet wallet, WalletRequest request) {
+        wallet.setIsFamilyWallet(false);
+        wallet.setBankAccountNumber(request.getBankAccountNumber() != null ? request.getBankAccountNumber().trim() : null);
+        wallet.setBankName(request.getBankName() != null ? request.getBankName().trim() : null);
+        wallet.setMonthlySpendingLimit(BigDecimal.ZERO);
     }
 
     private void configureCashWallet(Wallet wallet) {

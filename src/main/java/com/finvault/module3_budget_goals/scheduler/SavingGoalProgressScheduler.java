@@ -8,6 +8,7 @@ import com.finvault.module5_admin_audit.entity.SystemNotification;
 import com.finvault.module5_admin_audit.repository.SystemNotificationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,13 +35,16 @@ public class SavingGoalProgressScheduler {
     private final SavingGoalRepository savingGoalRepository;
     private final BudgetAlertWebSocketSender webSocketSender;
     private final SystemNotificationRepository systemNotificationRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     public SavingGoalProgressScheduler(SavingGoalRepository savingGoalRepository,
                                        BudgetAlertWebSocketSender webSocketSender,
-                                       SystemNotificationRepository systemNotificationRepository) {
+                                       SystemNotificationRepository systemNotificationRepository,
+                                       SimpMessagingTemplate messagingTemplate) {
         this.savingGoalRepository = savingGoalRepository;
         this.webSocketSender = webSocketSender;
         this.systemNotificationRepository = systemNotificationRepository;
+        this.messagingTemplate = messagingTemplate;
     }
 
     /**
@@ -69,11 +73,11 @@ public class SavingGoalProgressScheduler {
                     goal.getCurrentAmount(),
                     goal.getTargetAmount());
 
-            // Gửi cảnh báo tiến độ thời gian thực qua WebSocket & lưu thông báo vào DB - [L-H2]
+            // Gửi cảnh báo tiến độ thời gian thực qua WebSocket & lưu thông báo riêng tư vào DB chỉ cho goal owner
             String alertMessage = String.format("Mục tiêu tiết kiệm '%s' sắp đến hạn (%s). Tiến độ hiện tại: %s%%",
                     goal.getGoalName(), goal.getTargetDate(), goal.getProgressPercentage().toPlainString());
 
-            if (webSocketSender != null && goal.getUser() != null) {
+            if (goal.getUser() != null) {
                 BudgetAlertNotificationDto alert = new BudgetAlertNotificationDto(
                         goal.getId(),
                         goal.getGoalName(),
@@ -85,7 +89,17 @@ public class SavingGoalProgressScheduler {
                         goal.getProgressPercentage(),
                         alertMessage
                 );
-                webSocketSender.sendAlert(goal.getUser().getUsername(), alert);
+
+                // Gửi WebSocket riêng tư qua convertAndSendToUser chỉ cho goal owner
+                if (messagingTemplate != null) {
+                    try {
+                        messagingTemplate.convertAndSendToUser(goal.getUser().getUsername(), "/queue/saving-goals", alert);
+                    } catch (Exception ex) {
+                        log.error("Không thể gửi WebSocket tới user [{}]: {}", goal.getUser().getUsername(), ex.getMessage());
+                    }
+                } else if (webSocketSender != null) {
+                    webSocketSender.sendAlertToUser(goal.getUser().getUsername(), alert);
+                }
             }
 
             if (systemNotificationRepository != null && goal.getUser() != null) {
@@ -95,9 +109,12 @@ public class SavingGoalProgressScheduler {
                             alertMessage,
                             "WARNING",
                             true,
-                            "ALL",
+                            null,
+                            goal.getUser().getId(),
+                            goal.getUser().getUsername(),
                             "SYSTEM_SCHEDULER"
                     );
+                    notification.setBroadcastToRoles(null);
                     systemNotificationRepository.save(notification);
                 } catch (Exception ex) {
                     log.error("Không thể lưu thông báo hệ thống cho mục tiêu [{}]: {}", goal.getGoalName(), ex.getMessage());

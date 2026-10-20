@@ -194,6 +194,18 @@ public class BudgetResponseDto implements Serializable {
         this.usagePercentage = usagePercentage;
     }
 
+    public BigDecimal getSpentPercentage() {
+        return usagePercentage;
+    }
+
+    public BigDecimal getCurrentSpent() {
+        return spentAmount;
+    }
+
+    public BigDecimal getLimitAmount() {
+        return allocatedAmount;
+    }
+
     public Boolean getIsOverBudget() {
         return isOverBudget;
     }

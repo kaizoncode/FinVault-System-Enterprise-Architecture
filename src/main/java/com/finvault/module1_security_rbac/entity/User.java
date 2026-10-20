@@ -53,6 +53,13 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "two_factor_secret", length = 255)
     private String twoFactorSecret;
 
+    @Convert(converter = AesEncryptionConverter.class)
+    @Column(name = "pending_two_factor_secret", length = 255)
+    private String pendingTwoFactorSecret;
+
+    @Column(name = "scratch_codes", length = 2000)
+    private String scratchCodes;
+
     @Column(name = "failed_login_attempts", nullable = false)
     private Integer failedLoginAttempts = 0;
 
@@ -217,6 +224,22 @@ public class User extends BaseEntity implements UserDetails {
 
     public void setTwoFactorSecret(String twoFactorSecret) {
         this.twoFactorSecret = twoFactorSecret;
+    }
+
+    public String getPendingTwoFactorSecret() {
+        return pendingTwoFactorSecret;
+    }
+
+    public void setPendingTwoFactorSecret(String pendingTwoFactorSecret) {
+        this.pendingTwoFactorSecret = pendingTwoFactorSecret;
+    }
+
+    public String getScratchCodes() {
+        return scratchCodes;
+    }
+
+    public void setScratchCodes(String scratchCodes) {
+        this.scratchCodes = scratchCodes;
     }
 
     public Integer getFailedLoginAttempts() {

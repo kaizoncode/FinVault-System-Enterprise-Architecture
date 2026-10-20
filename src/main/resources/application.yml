@@ -19,12 +19,12 @@ spring:
   application:
     name: finvault-system
 
-  # Datasource Configuration (H2 File Persistence for Local, easily switchable to MySQL/Postgres)
+  # Datasource Configuration (H2 File Persistence for Local, easily switchable to MySQL/Postgres via environment variables)
   datasource:
-    url: jdbc:h2:file:./data/finvaultdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;NON_KEYWORDS=USER,VALUE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password: password
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:file:./data/finvaultdb;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE;NON_KEYWORDS=USER,VALUE}
+    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:password}
 
   # H2 Web Console Configuration
   h2:
@@ -35,16 +35,17 @@ spring:
         web-allow-others: false
         trace: false
 
-  # JPA & Hibernate Settings
+  # JPA & Hibernate Settings (Hibernate 6 automatically detects H2Dialect)
   jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show-sql: false
     properties:
       hibernate:
         format_sql: true
         jdbc:
+          # Timezone consistency: Đồng bộ múi giờ giữa JVM và Database (Asia/Ho_Chi_Minh)
+          # Tránh sai lệch thời gian khóa tài khoản brute-force (locked_until) và lịch trình giao dịch
           time_zone: Asia/Ho_Chi_Minh
     open-in-view: false
     defer-datasource-initialization: true
@@ -89,7 +90,7 @@ finvault:
   security:
     totp:
       issuer: "FinVault Enterprise"
-      window-size: 3
+      window-size: 1
     brute-force:
       max-failed-attempts: 5
       lock-duration-minutes: 15

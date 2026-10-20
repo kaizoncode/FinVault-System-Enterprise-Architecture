@@ -3,7 +3,12 @@ package com.finvault.module3_budget_goals.service;
 import com.finvault.common.BusinessException;
 import com.finvault.module1_security_rbac.entity.User;
 import com.finvault.module1_security_rbac.repository.UserRepository;
+import com.finvault.module2_wallet_ledger.entity.ApprovalStatus;
+import com.finvault.module2_wallet_ledger.entity.Transaction;
+import com.finvault.module2_wallet_ledger.entity.TransactionType;
 import com.finvault.module2_wallet_ledger.entity.Wallet;
+import com.finvault.module2_wallet_ledger.event.TransactionCreatedEvent;
+import com.finvault.module2_wallet_ledger.repository.TransactionRepository;
 import com.finvault.module2_wallet_ledger.repository.WalletRepository;
 import com.finvault.module3_budget_goals.dto.SavingGoalDepositRequest;
 import com.finvault.module3_budget_goals.dto.SavingGoalRequest;
@@ -13,11 +18,13 @@ import com.finvault.module3_budget_goals.entity.SavingGoalStatus;
 import com.finvault.module3_budget_goals.repository.SavingGoalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -41,13 +48,19 @@ public class SavingGoalServiceImpl implements SavingGoalService {
     private final SavingGoalRepository savingGoalRepository;
     private final UserRepository userRepository;
     private final WalletRepository walletRepository;
+    private final TransactionRepository transactionRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SavingGoalServiceImpl(SavingGoalRepository savingGoalRepository,
                                   UserRepository userRepository,
-                                  WalletRepository walletRepository) {
+                                  WalletRepository walletRepository,
+                                  TransactionRepository transactionRepository,
+                                  ApplicationEventPublisher eventPublisher) {
         this.savingGoalRepository = savingGoalRepository;
         this.userRepository = userRepository;
         this.walletRepository = walletRepository;
+        this.transactionRepository = transactionRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -60,6 +73,10 @@ public class SavingGoalServiceImpl implements SavingGoalService {
         Wallet wallet = null;
         BigDecimal initialAmount = (request.getInitialAmount() != null) ? request.getInitialAmount() : BigDecimal.ZERO;
 
+        if (initialAmount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Số tiền nạp ban đầu không được âm");
+        }
+
         if (request.getWalletId() != null) {
             // Khóa ví để trích tiền ban đầu an toàn nếu initialAmount > 0
             if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
@@ -69,11 +86,30 @@ public class SavingGoalServiceImpl implements SavingGoalService {
                 wallet.withdraw(initialAmount);
                 walletRepository.save(wallet);
                 log.info("Đã trích {} từ ví ID: {} nạp vào mục tiêu ban đầu", initialAmount, wallet.getId());
+
+                // Ghi nhận giao dịch sổ cái cho khoản nạp ban đầu
+                Transaction tx = new Transaction(
+                        wallet,
+                        user,
+                        null,
+                        TransactionType.EXPENSE,
+                        initialAmount,
+                        LocalDateTime.now(),
+                        "Nạp ban đầu vào mục tiêu: " + request.getGoalName()
+                );
+                tx.setApprovalStatus(ApprovalStatus.APPROVED);
+                Transaction savedTx = transactionRepository.save(tx);
+
+                if (eventPublisher != null) {
+                    eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedTx));
+                }
             } else {
                 wallet = walletRepository.findByIdAndIsDeletedFalse(request.getWalletId())
                         .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví với ID: " + request.getWalletId()));
                 validateWalletAccess(wallet, user);
             }
+        } else if (initialAmount.compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException("WALLET_REQUIRED", "Cần chỉ định ví khi có số tiền nạp ban đầu");
         }
 
         SavingGoal goal = new SavingGoal(
@@ -135,6 +171,57 @@ public class SavingGoalServiceImpl implements SavingGoalService {
         SavingGoal goal = getGoalEntityById(goalId);
         validateGoalOwnership(goal, username);
 
+        if (goal.getStatus() == SavingGoalStatus.CANCELLED) {
+            log.warn("Mục tiêu tiết kiệm ID: {} đã bị hủy trước đó", goalId);
+            return;
+        }
+
+        // Nếu mục tiêu còn số dư > 0, hoàn tiền về ví của mục tiêu
+        BigDecimal refundAmount = goal.getCurrentAmount();
+        if (refundAmount != null && refundAmount.compareTo(BigDecimal.ZERO) > 0) {
+            Wallet refundWallet = null;
+            if (goal.getWallet() != null && goal.getWallet().getId() != null) {
+                refundWallet = walletRepository.findByIdForUpdate(goal.getWallet().getId())
+                        .orElse(null);
+            }
+            if (refundWallet == null) {
+                // Fallback linh hoạt: tìm ví cá nhân hợp lệ của user nếu goal chưa liên kết ví
+                List<Wallet> userWallets = walletRepository.findAllByUserIdAndIsDeletedFalse(goal.getUser().getId());
+                if (!userWallets.isEmpty()) {
+                    refundWallet = walletRepository.findByIdForUpdate(userWallets.get(0).getId())
+                            .orElse(null);
+                }
+            }
+
+            if (refundWallet == null) {
+                throw new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví hợp lệ để hoàn trả số tiền còn lại trong mục tiêu");
+            }
+
+            validateWalletAccess(refundWallet, goal.getUser());
+            refundWallet.deposit(refundAmount);
+            walletRepository.save(refundWallet);
+
+            // Ghi nhận Transaction hoàn tiền
+            Transaction refundTx = new Transaction(
+                    refundWallet,
+                    goal.getUser(),
+                    null,
+                    TransactionType.INCOME,
+                    refundAmount,
+                    LocalDateTime.now(),
+                    "Hoàn tiền khi hủy mục tiêu: " + goal.getGoalName()
+            );
+            refundTx.setApprovalStatus(ApprovalStatus.APPROVED);
+            Transaction savedTx = transactionRepository.save(refundTx);
+
+            if (eventPublisher != null) {
+                eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedTx));
+            }
+
+            goal.withdraw(refundAmount);
+            log.info("Đã hoàn {} từ mục tiêu ID: {} về ví ID: {}", refundAmount, goalId, refundWallet.getId());
+        }
+
         goal.setIsDeleted(true);
         goal.setStatus(SavingGoalStatus.CANCELLED);
         savingGoalRepository.save(goal);
@@ -184,6 +271,10 @@ public class SavingGoalServiceImpl implements SavingGoalService {
             throw new BusinessException("GOAL_ALREADY_CANCELLED", "Không thể nạp tiền vào mục tiêu tiết kiệm đã bị hủy");
         }
 
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Số tiền nạp vào mục tiêu tiết kiệm phải lớn hơn 0");
+        }
+
         // Khóa ví nguồn bằng Pessimistic Lock nhằm chống Race Condition
         Wallet sourceWallet = walletRepository.findByIdForUpdate(request.getSourceWalletId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví nguồn với ID: " + request.getSourceWalletId()));
@@ -193,8 +284,30 @@ public class SavingGoalServiceImpl implements SavingGoalService {
         sourceWallet.withdraw(request.getAmount());
         goal.deposit(request.getAmount());
 
+        // Tự động gán ví nếu mục tiêu chưa có ví liên kết mặc định
+        if (goal.getWallet() == null) {
+            goal.setWallet(sourceWallet);
+        }
+
         walletRepository.save(sourceWallet);
         SavingGoal updatedGoal = savingGoalRepository.save(goal);
+
+        // Ghi nhận Transaction và phát sinh sự kiện cập nhật ngân sách
+        Transaction tx = new Transaction(
+                sourceWallet,
+                goal.getUser(),
+                null,
+                TransactionType.EXPENSE,
+                request.getAmount(),
+                LocalDateTime.now(),
+                "Nạp tiền vào mục tiêu: " + goal.getGoalName()
+        );
+        tx.setApprovalStatus(ApprovalStatus.APPROVED);
+        Transaction savedTx = transactionRepository.save(tx);
+
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedTx));
+        }
 
         log.info("Nạp tiền thành công vào Quỹ ID: {}. Tiến độ hiện tại: {}%", updatedGoal.getId(), updatedGoal.getProgressPercentage());
         return SavingGoalResponseDto.fromEntity(updatedGoal);
@@ -210,6 +323,25 @@ public class SavingGoalServiceImpl implements SavingGoalService {
             throw new BusinessException("GOAL_ALREADY_CANCELLED", "Mục tiêu tiết kiệm đã bị hủy");
         }
 
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("INVALID_AMOUNT", "Số tiền rút phải lớn hơn 0");
+        }
+
+        // Fallback: nếu targetWalletId == null, sử dụng goal.getWallet()
+        final Long effectiveWalletId;
+        if (targetWalletId != null) {
+            effectiveWalletId = targetWalletId;
+        } else if (goal.getWallet() != null && goal.getWallet().getId() != null) {
+            effectiveWalletId = goal.getWallet().getId();
+        } else {
+            throw new BusinessException("WALLET_REQUIRED", "Không tìm thấy ví nhận tiền (cần chỉ định ví nhận hoặc mục tiêu phải liên kết sẵn ví)");
+        }
+
+        // Khóa ví nhận tiền bằng Pessimistic Lock
+        Wallet targetWallet = walletRepository.findByIdForUpdate(effectiveWalletId)
+                .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví đích với ID: " + effectiveWalletId));
+        validateWalletAccess(targetWallet, goal.getUser());
+
         // Rút tiền khỏi Quỹ (method withdraw kiểm tra số dư hiện có)
         goal.withdraw(amount);
 
@@ -220,14 +352,26 @@ public class SavingGoalServiceImpl implements SavingGoalService {
                     goalId, goal.getCurrentAmount(), goal.getTargetAmount());
         }
 
-        // Nếu có chỉ định ví nhận tiền hoàn về, thực hiện cộng tiền an toàn vào ví
-        if (targetWalletId != null) {
-            Wallet targetWallet = walletRepository.findByIdForUpdate(targetWalletId)
-                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví đích với ID: " + targetWalletId));
-            validateWalletAccess(targetWallet, goal.getUser());
-            targetWallet.deposit(amount);
-            walletRepository.save(targetWallet);
-            log.info("Đã hoàn {} về ví ID: {}", amount, targetWalletId);
+        // Thực hiện cộng tiền an toàn vào ví
+        targetWallet.deposit(amount);
+        walletRepository.save(targetWallet);
+        log.info("Đã hoàn {} về ví ID: {}", amount, effectiveWalletId);
+
+        // Tạo Transaction với type=INCOME, note="Rút từ mục tiêu: [goalName]"
+        Transaction tx = new Transaction(
+                targetWallet,
+                goal.getUser(),
+                null,
+                TransactionType.INCOME,
+                amount,
+                LocalDateTime.now(),
+                "Rút từ mục tiêu: " + goal.getGoalName()
+        );
+        tx.setApprovalStatus(ApprovalStatus.APPROVED);
+        Transaction savedTx = transactionRepository.save(tx);
+
+        if (eventPublisher != null) {
+            eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedTx));
         }
 
         SavingGoal updatedGoal = savingGoalRepository.save(goal);

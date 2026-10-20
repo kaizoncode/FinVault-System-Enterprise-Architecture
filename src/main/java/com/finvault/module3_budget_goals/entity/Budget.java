@@ -73,6 +73,9 @@ public class Budget extends BaseEntity {
     @Column(name = "alert_threshold_100_sent")
     private Boolean alertThreshold100Sent = false;
 
+    @Column(name = "original_duration")
+    private Long originalDuration;
+
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
@@ -92,6 +95,9 @@ public class Budget extends BaseEntity {
         this.spentAmount = BigDecimal.ZERO;
         this.startDate = startDate;
         this.endDate = endDate;
+        if (startDate != null && endDate != null) {
+            this.originalDuration = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        }
         this.alertThreshold80Sent = false;
         this.alertThreshold100Sent = false;
         this.isActive = true;
@@ -128,6 +134,18 @@ public class Budget extends BaseEntity {
     public void recordExpense(BigDecimal amount) {
         if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
             this.spentAmount = this.spentAmount.add(amount);
+        }
+    }
+
+    /**
+     * Giảm số tiền chi tiêu khi giao dịch bị xóa hoặc hoàn tác
+     */
+    public void revertExpense(BigDecimal amount) {
+        if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
+            this.spentAmount = this.spentAmount.subtract(amount);
+            if (this.spentAmount.compareTo(BigDecimal.ZERO) < 0) {
+                this.spentAmount = BigDecimal.ZERO;
+            }
         }
     }
 
@@ -234,6 +252,36 @@ public class Budget extends BaseEntity {
 
     public void setIsActive(Boolean active) {
         isActive = active;
+    }
+
+    public Long getOriginalDuration() {
+        if (originalDuration != null) {
+            return originalDuration;
+        }
+        if (startDate != null && endDate != null) {
+            return java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+        }
+        return null;
+    }
+
+    public void setOriginalDuration(Long originalDuration) {
+        this.originalDuration = originalDuration;
+    }
+
+    public Long getOriginalDurationDays() {
+        return getOriginalDuration();
+    }
+
+    public void setOriginalDurationDays(Long originalDurationDays) {
+        this.originalDuration = originalDurationDays;
+    }
+
+    @PrePersist
+    @PreUpdate
+    public void calculateOriginalDuration() {
+        if (this.originalDuration == null && this.startDate != null && this.endDate != null) {
+            this.originalDuration = java.time.temporal.ChronoUnit.DAYS.between(this.startDate, this.endDate) + 1;
+        }
     }
 
     @Override

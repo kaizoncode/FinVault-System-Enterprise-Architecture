@@ -1,6 +1,7 @@
 package com.finvault.module1_security_rbac.service;
 
 import com.finvault.common.BusinessException;
+import com.finvault.common.SecurityUtils;
 import com.finvault.module1_security_rbac.dto.PasswordChangeDto;
 import com.finvault.module1_security_rbac.dto.RegisterRequest;
 import com.finvault.module1_security_rbac.dto.UserResponseDto;
@@ -123,6 +124,24 @@ public class UserServiceImpl implements UserService {
         if (Boolean.TRUE.equals(user.getIsDeleted())) {
             throw new BusinessException("USER_DELETED", "Không thể thao tác trên tài khoản đã bị xóa", HttpStatus.BAD_REQUEST);
         }
+
+        // Khi vô hiệu hóa tài khoản (isActive = false):
+        if (!isActive) {
+            // 1. Chặn Super Admin tự vô hiệu hóa tài khoản của chính mình
+            String currentUsername = SecurityUtils.getCurrentUsername();
+            if (currentUsername != null && user.getUsername().equalsIgnoreCase(currentUsername)) {
+                throw new BusinessException("CANNOT_DEACTIVATE_SELF", "Không thể tự vô hiệu hóa tài khoản của chính mình", HttpStatus.BAD_REQUEST);
+            }
+
+            // 2. Chặn vô hiệu hóa nếu đây là Super Admin duy nhất đang hoạt động trong hệ thống
+            if (user.hasRole(Role.ROLE_SUPER_ADMIN)) {
+                long activeSuperAdmins = userRepository.countActiveUsersByRoleName("ROLE_SUPER_ADMIN");
+                if (activeSuperAdmins <= 1) {
+                    throw new BusinessException("LAST_SUPER_ADMIN", "Phải có ít nhất 1 Super Admin hoạt động", HttpStatus.BAD_REQUEST);
+                }
+            }
+        }
+
         user.setIsActive(isActive);
         User updated = userRepository.save(user);
         log.info("Super Admin đã cập nhật trạng thái isActive = {} cho người dùng [{}]", isActive, user.getUsername());

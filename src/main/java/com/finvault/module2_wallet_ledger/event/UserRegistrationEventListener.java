@@ -71,6 +71,7 @@ public class UserRegistrationEventListener {
         personalWallet.setWalletName("Ví Chi Tiêu Cá Nhân");
         personalWallet.setWalletType(WalletType.CASH);
         personalWallet.setBalance(new BigDecimal("10000000.00")); // 10.000.000 VND số dư ban đầu
+        personalWallet.setInitialBalance(new BigDecimal("10000000.00"));
         personalWallet.setCurrency("VND");
         personalWallet.setIsFamilyWallet(false);
         personalWallet.setIsActive(true);
@@ -79,26 +80,8 @@ public class UserRegistrationEventListener {
         Wallet savedWallet = walletRepository.save(personalWallet);
         log.info("Đã tạo Ví cá nhân ID [{}] cho [{}]", savedWallet.getId(), user.getUsername());
 
-        // 2. Tự động thêm vào Quỹ gia đình hiện có (nếu có) để phục vụ kiểm thử phân quyền Gia trưởng
-        List<Wallet> allWallets = walletRepository.findAllByIsDeletedFalse();
-        for (Wallet w : allWallets) {
-            if (Boolean.TRUE.equals(w.getIsFamilyWallet())) {
-                boolean alreadyMember = walletMemberRepository.findByWalletIdAndUserId(w.getId(), user.getId()).isPresent();
-                if (!alreadyMember) {
-                    WalletMember member = new WalletMember();
-                    member.setWallet(w);
-                    member.setUser(user);
-                    member.setMemberRole(WalletMemberRole.MEMBER);
-                    member.setSpendingLimit(new BigDecimal("10000000.00")); // Hạn mức 10M VND
-                    member.setIsActive(true);
-                    member.setJoinedAt(LocalDateTime.now());
-                    walletMemberRepository.save(member);
-                    log.info("Đã tự động liên kết user [{}] vào Quỹ gia đình [{}] với hạn mức 10M VND",
-                            user.getUsername(), w.getWalletName());
-                }
-                break;
-            }
-        }
+        // 2. Việc tham gia Quỹ gia đình được quản lý thông qua lời mời (Invitation) và phê duyệt rõ ràng từ Chủ hộ (Owner)
+        // Không tự động gán người dùng lạ vào quỹ gia đình để đảm bảo an toàn bảo mật và cô lập dữ liệu người dùng.
 
         // 3. Khởi tạo 2 ngân sách thông minh 50/30/20 thử nghiệm
         try {

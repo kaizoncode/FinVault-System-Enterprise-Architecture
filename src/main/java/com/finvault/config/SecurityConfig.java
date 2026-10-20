@@ -6,6 +6,7 @@ import com.finvault.module1_security_rbac.service.BruteForceProtectionService;
 import com.finvault.module1_security_rbac.service.CustomUserDetailsService;
 import com.finvault.module5_admin_audit.entity.AuditLog;
 import com.finvault.module5_admin_audit.repository.AuditLogRepository;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,13 +18,17 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import com.finvault.module5_admin_audit.ratelimit.RateLimiterFilter;
+import com.finvault.module5_admin_audit.ratelimit.RateLimiterService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 
@@ -50,14 +55,25 @@ public class SecurityConfig {
     private final CustomUserDetailsService userDetailsService;
     private final BruteForceProtectionService bruteForceProtectionService;
     private final AuditLogRepository auditLogRepository;
+    private final RateLimiterService rateLimiterService;
 
     public SecurityConfig(
             CustomUserDetailsService userDetailsService,
             BruteForceProtectionService bruteForceProtectionService,
-            AuditLogRepository auditLogRepository) {
+            AuditLogRepository auditLogRepository,
+            RateLimiterService rateLimiterService) {
         this.userDetailsService = userDetailsService;
         this.bruteForceProtectionService = bruteForceProtectionService;
         this.auditLogRepository = auditLogRepository;
+        this.rateLimiterService = rateLimiterService;
+    }
+
+    /**
+     * Quản lý phiên làm việc đa thiết bị và kích hoạt lắng nghe sự kiện hủy session
+     */
+    @Bean
+    public HttpSessionEventPublisher httpSessionEventPublisher() {
+        return new HttpSessionEventPublisher();
     }
 
     @Bean
@@ -166,14 +182,19 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // Gắn RateLimiterFilter ngay sau UsernamePasswordAuthenticationFilter
+        RateLimiterFilter rateLimiterFilter = new RateLimiterFilter(rateLimiterService);
+        http.addFilterAfter(rateLimiterFilter, UsernamePasswordAuthenticationFilter.class);
+
         http
             .authenticationProvider(authenticationProvider())
-            // Kích hoạt bảo vệ CSRF chuẩn qua CookieCsrfTokenRepository (chỉ miễn trừ H2 Console và WebSocket STOMP)
+            // Kích hoạt bảo vệ CSRF chuẩn qua CookieCsrfTokenRepository (miễn trừ H2 Console, WebSocket STOMP và Logout)
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .ignoringRequestMatchers(
                     new AntPathRequestMatcher("/h2-console/**"),
-                    new AntPathRequestMatcher("/ws/**")
+                    new AntPathRequestMatcher("/ws/**"),
+                    new AntPathRequestMatcher("/logout")
                 )
             )
             // Cấu hình hiển thị iframe cho H2 Web Console
@@ -182,10 +203,10 @@ public class SecurityConfig {
             )
             // Phân quyền URL đa cấp độ Dynamic RBAC
             .authorizeHttpRequests(auth -> auth
-                // Tài nguyên tĩnh công khai & trang đăng nhập/đăng ký & bootstrap
+                // Tài nguyên tĩnh công khai & trang đăng nhập/đăng ký/đăng xuất & bootstrap
                 .requestMatchers(
-                    "/login", "/register", "/auth/2fa", "/css/**", "/js/**", "/images/**",
-                    "/webjars/**", "/favicon.ico", "/error", "/api/admin/bootstrap"
+                    "/login", "/register", "/auth/2fa", "/logout", "/css/**", "/js/**", "/images/**",
+                    "/webjars/**", "/favicon.ico", "/error", "/api/admin/bootstrap", "/api/loans/**"
                 ).permitAll()
                 // H2 Console chỉ dành riêng cho SUPER_ADMIN
                 .requestMatchers("/h2-console/**").hasRole("SUPER_ADMIN")
@@ -208,9 +229,9 @@ public class SecurityConfig {
                 .failureHandler(authenticationFailureHandler())
                 .permitAll()
             )
-            // Cấu hình Đăng xuất an toàn: Chỉ chấp nhận phương thức POST có kèm CSRF token hợp lệ
+            // Cấu hình Đăng xuất an toàn: Hỗ trợ linh hoạt cả GET và POST
             .logout(logout -> logout
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "POST"))
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
                 .logoutSuccessHandler((request, response, authentication) -> {
                     if (authentication != null) {
                         String username = authentication.getName();
@@ -240,10 +261,22 @@ public class SecurityConfig {
                         }
                         log.info("Người dùng [{}] đã đăng xuất an toàn khỏi hệ thống từ IP [{}].", username, clientIp);
                     }
+                    Cookie jsessionCookie = new Cookie("JSESSIONID", "");
+                    jsessionCookie.setPath("/");
+                    jsessionCookie.setMaxAge(0);
+                    jsessionCookie.setHttpOnly(true);
+                    response.addCookie(jsessionCookie);
+
+                    Cookie xsrfCookie = new Cookie("XSRF-TOKEN", "");
+                    xsrfCookie.setPath("/");
+                    xsrfCookie.setMaxAge(0);
+                    response.addCookie(xsrfCookie);
+
                     response.sendRedirect(request.getContextPath() + "/login?logout=true");
                 })
+                .clearAuthentication(true)
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN")
                 .permitAll()
             )
             // Quản lý phiên làm việc Session

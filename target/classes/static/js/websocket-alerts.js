@@ -37,17 +37,28 @@
                 console.log('[FinVault WS] Đã kết nối STOMP WebSocket thành công! Frame:', frame);
                 updateWsStatusBadge(true);
 
-                // 1. Đăng ký kênh cảnh báo ngân sách cá nhân
-                const personalDestination = '/topic/budget-alerts/' + username;
-                stompClient.subscribe(personalDestination, function (message) {
+                // 1. Đăng ký kênh cảnh báo ngân sách cá nhân an toàn (User Destination Queue)
+                stompClient.subscribe('/user/queue/budget-alerts', function (message) {
                     try {
                         const alertData = JSON.parse(message.body);
-                        console.log('[FinVault WS] Nhận cảnh báo ngân sách cá nhân:', alertData);
+                        console.log('[FinVault WS] Nhận cảnh báo ngân sách qua /user/queue/budget-alerts:', alertData);
                         handleIncomingBudgetAlert(alertData);
                     } catch (err) {
                         console.error('[FinVault WS] Lỗi phân giải nội dung cảnh báo:', err);
                     }
                 });
+
+                // Fallback đăng ký topic cũ nếu có
+                if (username) {
+                    stompClient.subscribe('/topic/budget-alerts/' + username, function (message) {
+                        try {
+                            const alertData = JSON.parse(message.body);
+                            handleIncomingBudgetAlert(alertData);
+                        } catch (err) {
+                            console.error('[FinVault WS] Lỗi phân giải nội dung cảnh báo:', err);
+                        }
+                    });
+                }
 
                 // 2. Nếu là Super Admin hoặc System Auditor, đăng ký thêm kênh giám sát toàn hệ thống
                 if (isSuperAdmin || isSystemAuditor) {

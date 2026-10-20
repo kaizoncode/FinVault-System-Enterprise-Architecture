@@ -36,9 +36,11 @@ public class BudgetAlertWebSocketSender {
         }
 
         try {
-            // Gửi tới kênh người dùng cụ thể
-            String userDestination = "/topic/budget-alerts/" + targetUsername;
-            messagingTemplate.convertAndSend(userDestination, alert);
+            // Gửi tới kênh người dùng cụ thể an toàn qua user destination (chống nghe lén STOMP)
+            messagingTemplate.convertAndSendToUser(targetUsername, "/queue/budget-alerts", alert);
+
+            // Gửi tới kênh topic cá nhân để tương thích ngược với client cũ
+            messagingTemplate.convertAndSend("/topic/budget-alerts/" + targetUsername, alert);
 
             // Gửi tới kênh giám sát chung của Quản trị viên
             messagingTemplate.convertAndSend("/topic/admin/budget-alerts", alert);
@@ -47,6 +49,22 @@ public class BudgetAlertWebSocketSender {
                     targetUsername, alert.getSeverity(), alert.getBudgetName());
         } catch (Exception e) {
             log.error("Lỗi khi gửi thông báo WebSocket cảnh báo ngân sách cho user [{}]: {}", targetUsername, e.getMessage());
+        }
+    }
+
+    /**
+     * Gửi thông báo/cảnh báo riêng tư tới một người dùng cụ thể (chống lộ thông tin mục tiêu tiết kiệm cá nhân)
+     */
+    public void sendAlertToUser(String targetUsername, BudgetAlertNotificationDto alert) {
+        if (targetUsername == null || alert == null) {
+            return;
+        }
+
+        try {
+            messagingTemplate.convertAndSendToUser(targetUsername, "/queue/saving-goals", alert);
+            log.info("Đã gửi cảnh báo mục tiêu riêng tư tới user [{}] qua convertAndSendToUser", targetUsername);
+        } catch (Exception e) {
+            log.error("Lỗi khi gửi thông báo WebSocket riêng tư cho user [{}]: {}", targetUsername, e.getMessage());
         }
     }
 }

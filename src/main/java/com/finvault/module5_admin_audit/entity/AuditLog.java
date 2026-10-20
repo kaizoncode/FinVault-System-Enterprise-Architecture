@@ -32,7 +32,7 @@ public class AuditLog implements Serializable {
     @Column(name = "actor_username", length = 50, nullable = false)
     private String actorUsername;
 
-    @Column(name = "actor_role", length = 50)
+    @Column(name = "actor_role", length = 255)
     private String actorRole;
 
     @Column(name = "action", length = 100, nullable = false)

@@ -41,7 +41,7 @@ public class TotpManager {
 
     public TotpManager(
             @Value("${finvault.security.totp.issuer:FinVault Enterprise}") String issuer,
-            @Value("${finvault.security.totp.window-size:3}") int windowSize) {
+            @Value("${finvault.security.totp.window-size:1}") int windowSize) {
         this.issuer = issuer;
         GoogleAuthenticatorConfig config = new GoogleAuthenticatorConfig.GoogleAuthenticatorConfigBuilder()
                 .setWindowSize(windowSize)
@@ -98,10 +98,11 @@ public class TotpManager {
             return false;
         }
         try {
-            int code = Integer.parseInt(codeString.trim());
+            codeString = codeString.replaceAll("\\s+", "");
+            int code = Integer.parseInt(codeString);
             return verifyCode(secretKey, code);
         } catch (NumberFormatException e) {
-            log.warn("Mã TOTP nhập vào không hợp lệ: '{}'", codeString);
+            log.warn("Mã TOTP nhập vào không hợp lệ (không phải số nguyên)");
             return false;
         }
     }

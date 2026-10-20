@@ -16,9 +16,9 @@ import java.io.IOException;
  * ==============================================================================
  * [Owner: Member 5 - Admin Live CMS & Audit Logging Module]
  * RateLimiterFilter: Bộ lọc HTTP chặn các yêu cầu vượt ngưỡng tần suất (HTTP 429 Too Many Requests)
+ * Được cấu hình gắn trong Spring Security FilterChain sau UsernamePasswordAuthenticationFilter.
  * ==============================================================================
  */
-@Component
 public class RateLimiterFilter extends OncePerRequestFilter {
 
     private final RateLimiterService rateLimiterService;
@@ -75,7 +75,8 @@ public class RateLimiterFilter extends OncePerRequestFilter {
 
     private String resolveClientKey(HttpServletRequest request) {
         String path = request.getRequestURI();
-        boolean isAuthEndpoint = "/login".equals(path) || "/register".equals(path) || "/auth/2fa".equals(path) || path.startsWith("/api/admin/bootstrap");
+        boolean isAuthPath = "/login".equals(path) || "/register".equals(path) || "/auth/2fa".equals(path) || path.startsWith("/api/admin/bootstrap");
+        boolean isAuthEndpoint = isAuthPath && "POST".equalsIgnoreCase(request.getMethod());
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {

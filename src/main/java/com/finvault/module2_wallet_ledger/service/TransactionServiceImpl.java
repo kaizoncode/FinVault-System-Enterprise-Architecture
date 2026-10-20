@@ -7,6 +7,7 @@ import com.finvault.module1_security_rbac.service.UserService;
 import com.finvault.module2_wallet_ledger.dto.*;
 import com.finvault.module2_wallet_ledger.entity.*;
 import com.finvault.module2_wallet_ledger.event.TransactionCreatedEvent;
+import com.finvault.module2_wallet_ledger.event.TransactionDeletedEvent;
 import com.finvault.module2_wallet_ledger.repository.CategoryRepository;
 import com.finvault.module2_wallet_ledger.repository.TransactionRepository;
 import com.finvault.module2_wallet_ledger.repository.WalletMemberRepository;
@@ -82,6 +83,11 @@ public class TransactionServiceImpl implements TransactionService {
         // Khóa bi quan hàng Ví để cập nhật số dư chống Race Condition
         Wallet wallet = walletRepository.findByIdForUpdate(request.getWalletId())
                 .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví có ID: " + request.getWalletId(), HttpStatus.NOT_FOUND));
+
+        // Kiểm tra ví có đang hoạt động hay không (chống giao dịch trên ví bị đóng băng)
+        if (!Boolean.TRUE.equals(wallet.getIsActive())) {
+            throw new BusinessException("WALLET_INACTIVE", "Ví đã bị đóng băng hoặc ngưng hoạt động", HttpStatus.BAD_REQUEST);
+        }
 
         Category category = null;
         if (request.getCategoryId() != null) {
@@ -223,6 +229,14 @@ public class TransactionServiceImpl implements TransactionService {
         Wallet sourceWallet = firstLockId.equals(request.getSourceWalletId()) ? firstWallet : secondWallet;
         Wallet targetWallet = firstLockId.equals(request.getTargetWalletId()) ? firstWallet : secondWallet;
 
+        // Kiểm tra ví có đang hoạt động hay không (chống chuyển tiền từ/đến ví bị đóng băng)
+        if (!Boolean.TRUE.equals(sourceWallet.getIsActive())) {
+            throw new BusinessException("WALLET_INACTIVE", "Ví nguồn đã bị đóng băng hoặc ngưng hoạt động", HttpStatus.BAD_REQUEST);
+        }
+        if (!Boolean.TRUE.equals(targetWallet.getIsActive())) {
+            throw new BusinessException("WALLET_INACTIVE", "Ví đích đã bị đóng băng hoặc ngưng hoạt động", HttpStatus.BAD_REQUEST);
+        }
+
         // Kiểm tra quyền thao tác trên ví nguồn
         boolean isSourceOwner = sourceWallet.getUser().getId().equals(user.getId());
         boolean isSuperAdmin = user.hasRole(Role.ROLE_SUPER_ADMIN);
@@ -266,12 +280,13 @@ public class TransactionServiceImpl implements TransactionService {
         LocalDateTime now = LocalDateTime.now();
         String baseNote = (request.getNote() != null && !request.getNote().isBlank()) ? request.getNote().trim() : "Chuyển tiền liên ví";
 
-        // Bản ghi 1: Ví nguồn (Debit / Ghi nợ)
+        // Bản ghi 1: Ví nguồn (Debit / Ghi nợ / OUTGOING)
         Transaction debitTransfer = new Transaction();
         debitTransfer.setWallet(sourceWallet);
         debitTransfer.setTargetWallet(targetWallet);
         debitTransfer.setUser(user);
         debitTransfer.setTransactionType(TransactionType.TRANSFER);
+        debitTransfer.setTransferDirection(TransferDirection.OUTGOING);
         debitTransfer.setAmount(request.getAmount());
         debitTransfer.setTransactionDate(now);
         debitTransfer.setNote("Chuyển tới " + targetWallet.getWalletName() + ": " + baseNote);
@@ -279,18 +294,24 @@ public class TransactionServiceImpl implements TransactionService {
 
         Transaction savedDebit = transactionRepository.save(debitTransfer);
 
-        // Bản ghi 2: Ví đích (Credit / Ghi có) - Đảm bảo lịch sử giao dịch ví nhận không bị thiếu vết kiểm toán [L-C2]
+        // Bản ghi 2: Ví đích (Credit / Ghi có / INCOMING) - Đảm bảo lịch sử giao dịch ví nhận không bị thiếu vết kiểm toán [L-C2]
         Transaction creditTransfer = new Transaction();
         creditTransfer.setWallet(targetWallet);
         creditTransfer.setTargetWallet(sourceWallet);
         creditTransfer.setUser(user);
         creditTransfer.setTransactionType(TransactionType.TRANSFER);
+        creditTransfer.setTransferDirection(TransferDirection.INCOMING);
+        creditTransfer.setLinkedTransactionId(savedDebit.getId());
         creditTransfer.setAmount(request.getAmount());
         creditTransfer.setTransactionDate(now);
         creditTransfer.setNote("Nhận từ " + sourceWallet.getWalletName() + ": " + baseNote);
         creditTransfer.setApprovalStatus(ApprovalStatus.APPROVED);
 
-        transactionRepository.save(creditTransfer);
+        Transaction savedCredit = transactionRepository.save(creditTransfer);
+
+        // Cập nhật linkedTransactionId cho bản ghi ghi nợ để liên kết 2 chiều
+        savedDebit.setLinkedTransactionId(savedCredit.getId());
+        transactionRepository.save(savedDebit);
 
         eventPublisher.publishEvent(new TransactionCreatedEvent(this, savedDebit));
         log.info("Chuyển tiền thành công {} VND từ ví [{}] sang ví [{}] bởi [{}]",
@@ -430,32 +451,102 @@ public class TransactionServiceImpl implements TransactionService {
 
         // Nếu giao dịch đã APPROVED, hoàn trả lại số dư tương ứng cho ví [L-C1]
         if (transaction.getApprovalStatus() == ApprovalStatus.APPROVED) {
-            Wallet wallet = walletRepository.findByIdForUpdate(transaction.getWallet().getId())
-                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết", HttpStatus.NOT_FOUND));
-
             if (transaction.getTransactionType() == TransactionType.INCOME) {
+                Wallet wallet = walletRepository.findByIdForUpdate(transaction.getWallet().getId())
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết", HttpStatus.NOT_FOUND));
+                // Issue 7: Kiểm tra số dư ví trước khi hoàn tác thu nhập (tránh overdraft crash)
+                if (wallet.getBalance().compareTo(transaction.getAmount()) < 0) {
+                    throw new BusinessException("CANNOT_REVERSE_INCOME",
+                            "Không thể xóa khoản thu nhập này vì số dư hiện tại không đủ. Vui lòng xóa các khoản chi tiêu liên quan trước.",
+                            HttpStatus.BAD_REQUEST);
+                }
                 // Thu nhập bị xóa -> trừ tiền lại khỏi ví
                 wallet.withdraw(transaction.getAmount());
+                walletRepository.save(wallet);
             } else if (transaction.getTransactionType() == TransactionType.EXPENSE) {
+                Wallet wallet = walletRepository.findByIdForUpdate(transaction.getWallet().getId())
+                        .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết", HttpStatus.NOT_FOUND));
                 // Chi tiêu bị xóa -> hoàn trả tiền vào ví
                 wallet.deposit(transaction.getAmount());
+                walletRepository.save(wallet);
             } else if (transaction.getTransactionType() == TransactionType.TRANSFER) {
-                // Chuyển tiền bị xóa -> hoàn trả tiền vào ví nguồn, trừ khỏi ví đích nếu có
-                wallet.deposit(transaction.getAmount());
-                if (transaction.getTargetWallet() != null) {
-                    Wallet targetWallet = walletRepository.findByIdForUpdate(transaction.getTargetWallet().getId()).orElse(null);
-                    if (targetWallet != null) {
-                        targetWallet.withdraw(transaction.getAmount());
-                        walletRepository.save(targetWallet);
-                    }
-                }
+                // Chuyển tiền bị xóa -> đảo ngược nghiệp vụ an toàn, chống deadlock bằng khóa thứ tự ID tăng dần
+                handleTransferDeletion(transaction);
             }
-            walletRepository.save(wallet);
         }
 
         transaction.setIsDeleted(true);
         transactionRepository.save(transaction);
         log.info("Người dùng [{}] đã soft-delete giao dịch [{}]. Số dư ví đã được hoàn trả chính xác.", username, transactionId);
+
+        // Phát sự kiện xóa giao dịch để Module 3 tự động giảm spentAmount của Ngân sách
+        eventPublisher.publishEvent(new TransactionDeletedEvent(this, transaction));
+    }
+
+    private void handleTransferDeletion(Transaction transaction) {
+        boolean isIncoming = isIncomingTransfer(transaction);
+        Wallet sourceWallet = isIncoming ? transaction.getTargetWallet() : transaction.getWallet();
+        Wallet destWallet = isIncoming ? transaction.getWallet() : transaction.getTargetWallet();
+
+        Long id1 = (transaction.getWallet() != null) ? transaction.getWallet().getId() : null;
+        Long id2 = (transaction.getTargetWallet() != null) ? transaction.getTargetWallet().getId() : null;
+
+        if (id1 != null && id2 != null) {
+            // Issue 8: Lock wallets theo thứ tự ID tăng dần để chống triệt để Deadlock
+            Long firstId = Math.min(id1, id2);
+            Long secondId = Math.max(id1, id2);
+
+            Wallet firstWallet = walletRepository.findByIdForUpdate(firstId)
+                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết ID: " + firstId, HttpStatus.NOT_FOUND));
+            Wallet secondWallet = firstId.equals(secondId) ? firstWallet : walletRepository.findByIdForUpdate(secondId)
+                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết ID: " + secondId, HttpStatus.NOT_FOUND));
+
+            Wallet lockedSource = (sourceWallet != null && sourceWallet.getId().equals(firstId)) ? firstWallet : secondWallet;
+            Wallet lockedDest = (destWallet != null && destWallet.getId().equals(firstId)) ? firstWallet : secondWallet;
+
+            // Kiểm tra số dư ví đích trước khi thu hồi tiền chuyển
+            if (lockedDest.getBalance().compareTo(transaction.getAmount()) < 0) {
+                throw new BusinessException("CANNOT_REVERSE_TRANSFER",
+                        "Không thể xóa giao dịch chuyển tiền vì số dư hiện tại của ví nhận không đủ để hoàn tác.",
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            // Đảo ngược chuyển tiền: Hoàn lại tiền cho ví nguồn, thu hồi tiền từ ví đích
+            lockedSource.deposit(transaction.getAmount());
+            lockedDest.withdraw(transaction.getAmount());
+
+            walletRepository.save(lockedSource);
+            walletRepository.save(lockedDest);
+            log.info("Đã đảo ngược số dư transfer: hoàn {} cho ví nguồn [{}] và thu hồi từ ví đích [{}]",
+                    transaction.getAmount(), lockedSource.getId(), lockedDest.getId());
+        } else if (sourceWallet != null) {
+            Wallet lockedSource = walletRepository.findByIdForUpdate(sourceWallet.getId())
+                    .orElseThrow(() -> new BusinessException("WALLET_NOT_FOUND", "Không tìm thấy ví liên kết", HttpStatus.NOT_FOUND));
+            lockedSource.deposit(transaction.getAmount());
+            walletRepository.save(lockedSource);
+        }
+
+        // Tự động soft-delete bản ghi đối ứng để không bị mồ côi (orphaned)
+        if (transaction.getLinkedTransactionId() != null) {
+            transactionRepository.findById(transaction.getLinkedTransactionId()).ifPresent(linkedTx -> {
+                if (!Boolean.TRUE.equals(linkedTx.getIsDeleted())) {
+                    linkedTx.setIsDeleted(true);
+                    transactionRepository.save(linkedTx);
+                    log.info("Đã tự động soft-delete bản ghi đối ứng [{}] của giao dịch chuyển khoản [{}]", linkedTx.getId(), transaction.getId());
+                }
+            });
+        }
+    }
+
+    private boolean isIncomingTransfer(Transaction tx) {
+        if (tx.getTransferDirection() != null) {
+            return tx.getTransferDirection() == TransferDirection.INCOMING;
+        }
+        // Fallback linh hoạt cho các bản ghi transfer cũ chưa gắn TransferDirection
+        if (tx.getNote() != null && tx.getNote().trim().toLowerCase().startsWith("nhận từ")) {
+            return true;
+        }
+        return false;
     }
 
     private void validateReceiptUrl(String receiptUrl) {

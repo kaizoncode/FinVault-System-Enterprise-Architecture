@@ -10,7 +10,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -44,12 +46,11 @@ public class AesEncryptionConverter implements AttributeConverter<String, String
     private static byte[] staticKeyBytes;
     private static final SecureRandom secureRandom = new SecureRandom();
 
+    @Value("${finvault.system.environment:DEVELOPMENT}")
+    private String environment = "DEVELOPMENT";
+
     public AesEncryptionConverter() {
-        if (staticKeyBytes == null) {
-            staticKeyBytes = new byte[32];
-            secureRandom.nextBytes(staticKeyBytes);
-            log.warn("AesEncryptionConverter: Khởi tạo khóa mã hóa AES-256 ngẫu nhiên an toàn trong bộ nhớ (Chưa cấu hình FINVAULT_AES_KEY).");
-        }
+        // KHÔNG BAO GIỜ fallback sang random key tạm thời trong bộ nhớ để tránh hỏng dữ liệu khi restart
     }
 
     @Value("${finvault.crypto.aes-secret-key:}")
@@ -60,9 +61,19 @@ public class AesEncryptionConverter implements AttributeConverter<String, String
                 staticKeyBytes = parsed;
                 log.info("AesEncryptionConverter: Khóa mã hóa AES-256 từ cấu hình đã được nạp thành công.");
                 return;
+            } else {
+                throw new IllegalArgumentException("Khóa mã hóa FINVAULT_AES_KEY phải có đúng độ dài 256-bit (64 ký tự Hex).");
             }
         }
-        log.warn("WARN: FINVAULT_AES_KEY không được cung cấp hoặc không hợp lệ. Đang duy trì khóa AES-256 ngẫu nhiên an toàn trong bộ nhớ.");
+
+        // Bắt buộc trong môi trường PRODUCTION phải có biến môi trường FINVAULT_AES_KEY (Fail-fast)
+        if ("PRODUCTION".equalsIgnoreCase(environment != null ? environment.trim() : "")) {
+            throw new IllegalStateException("FINVAULT_AES_KEY environment variable is REQUIRED. Application cannot start without a persistent encryption key.");
+        }
+
+        // Môi trường DEVELOPMENT: Nạp hoặc tạo khóa cục bộ bền vững trên đĩa (./data/.finvault_aes.key)
+        staticKeyBytes = getOrCreatePersistentLocalKey();
+        log.warn("AesEncryptionConverter: Biến môi trường FINVAULT_AES_KEY chưa được đặt. Đang sử dụng khóa cục bộ bền vững tại './data/.finvault_aes.key' cho môi trường DEVELOPMENT.");
     }
 
     @Override
@@ -134,9 +145,46 @@ public class AesEncryptionConverter implements AttributeConverter<String, String
         if (staticKeyBytes != null && staticKeyBytes.length == 32) {
             return staticKeyBytes;
         }
-        staticKeyBytes = new byte[32];
-        secureRandom.nextBytes(staticKeyBytes);
-        return staticKeyBytes;
+        if (!"PRODUCTION".equalsIgnoreCase(environment != null ? environment.trim() : "")) {
+            staticKeyBytes = getOrCreatePersistentLocalKey();
+            return staticKeyBytes;
+        }
+        throw new IllegalStateException("FINVAULT_AES_KEY environment variable is REQUIRED. Application cannot start without a persistent encryption key.");
+    }
+
+    private synchronized byte[] getOrCreatePersistentLocalKey() {
+        try {
+            File dataDir = new File("./data");
+            if (!dataDir.exists()) {
+                dataDir.mkdirs();
+            }
+            File keyFile = new File(dataDir, ".finvault_aes.key");
+            if (keyFile.exists() && keyFile.length() > 0) {
+                String hex = Files.readString(keyFile.toPath(), StandardCharsets.UTF_8).trim();
+                byte[] key = hexStringToByteArray(hex);
+                if (key.length == 32) {
+                    return key;
+                }
+            }
+            // Sinh khóa AES-256 ngẫu nhiên chuẩn mã hóa an toàn
+            byte[] newKey = new byte[32];
+            secureRandom.nextBytes(newKey);
+            String hex = byteArrayToHexString(newKey);
+            Files.writeString(keyFile.toPath(), hex, StandardCharsets.UTF_8);
+            log.info("AesEncryptionConverter: Đã tạo và lưu khóa AES-256 phát triển cục bộ tại: {}", keyFile.getAbsolutePath());
+            return newKey;
+        } catch (Exception e) {
+            log.error("Không thể khởi tạo khóa cục bộ: {}", e.getMessage(), e);
+            throw new IllegalStateException("FINVAULT_AES_KEY environment variable is REQUIRED. Application cannot start without a persistent encryption key.");
+        }
+    }
+
+    private static String byteArrayToHexString(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private static byte[] hexStringToByteArray(String s) {

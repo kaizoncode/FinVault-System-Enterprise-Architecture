@@ -1,172 +1,178 @@
-E:\Nhom 3\src\main\java\com\finvault\common\ApiResponse.java
-E:\Nhom 3\src\main\java\com\finvault\common\BaseEntity.java
-E:\Nhom 3\src\main\java\com\finvault\common\BusinessException.java
-E:\Nhom 3\src\main\java\com\finvault\common\GlobalExceptionHandler.java
-E:\Nhom 3\src\main\java\com\finvault\common\SecurityUtils.java
-E:\Nhom 3\src\main\java\com\finvault\config\AsyncConfig.java
-E:\Nhom 3\src\main\java\com\finvault\config\JpaAuditingConfig.java
-E:\Nhom 3\src\main\java\com\finvault\config\OpenApiConfig.java
-E:\Nhom 3\src\main\java\com\finvault\config\SecurityConfig.java
-E:\Nhom 3\src\main\java\com\finvault\config\WebSocketConfig.java
-E:\Nhom 3\src\main\java\com\finvault\controller\MainDashboardController.java
-E:\Nhom 3\src\main\java\com\finvault\FinVaultApplication.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\AuthController.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\BootstrapController.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\TwoFactorApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\controller\UserApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\AesEncryptionConverter.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\CryptoConfigValidator.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\crypto\TotpManager.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\BootstrapAdminRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\LoginRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\PasswordChangeDto.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\RegisterRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\TwoFactorSetupDto.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\TwoFactorVerifyDto.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\dto\UserResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\entity\Role.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\entity\User.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\event\UserRegisteredEvent.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\repository\RoleRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\repository\UserRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\BruteForceProtectionService.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\CustomUserDetailsService.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\LiveUiPermissionEvaluator.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\TwoFactorAuthService.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\UserService.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\UserServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\v2_expansion\PasskeyAuthenticationProvider.java
-E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\v2_expansion\PasskeyCredentialDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\controller\CategoryApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\controller\TransactionApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\controller\WalletApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\ApprovalDecisionDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\CategoryRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\CategoryResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\ReconciliationReportDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\TransactionRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\TransactionResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\TransferRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletMemberDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\ApprovalStatus.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\Category.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\CategoryType.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\Transaction.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\TransactionType.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\Wallet.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletMember.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletMemberRole.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletType.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\event\TransactionCreatedEvent.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\event\UserRegistrationEventListener.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\factory\WalletFactory.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\repository\CategoryRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\repository\TransactionRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\repository\WalletMemberRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\repository\WalletRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\CategoryService.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\CategoryServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\ReconciliationService.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\ReconciliationServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\TransactionService.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\TransactionServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\WalletService.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\service\WalletServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\v2_expansion\BankTransactionPayloadDto.java
-E:\Nhom 3\src\main\java\com\finvault\module2_wallet_ledger\v2_expansion\OpenBankingSyncProvider.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\controller\BudgetApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\controller\LoanCalculatorApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\controller\SavingGoalApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\Budget50_30_20Request.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\BudgetAlertNotificationDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\BudgetRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\BudgetResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\LoanAmortizationScheduleDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\LoanCalculationRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\LoanCalculationResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalDepositRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\AllocationType.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\Budget.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\BudgetType.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\LoanCalculation.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\LoanCalculationMethod.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\SavingGoal.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\entity\SavingGoalStatus.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\event\TransactionBudgetEventListener.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\repository\BudgetRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\repository\LoanCalculationRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\repository\SavingGoalRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\rule\BudgetAlertRuleEngine.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\rule\BudgetAlertStrategy.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\rule\Critical100AlertStrategy.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\rule\Warning80AlertStrategy.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\scheduler\BudgetRolloverScheduler.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\scheduler\SavingGoalProgressScheduler.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\BudgetService.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\BudgetServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\LoanCalculatorService.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\LoanCalculatorServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\SavingGoalService.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\service\SavingGoalServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\v2_expansion\AiBudgetAdvisorProvider.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\v2_expansion\AiBudgetRecommendationDto.java
-E:\Nhom 3\src\main\java\com\finvault\module3_budget_goals\websocket\BudgetAlertWebSocketSender.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\controller\AnalyticsApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\controller\ReportApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\CashFlowTrendDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\CategoryExpenseDistributionDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\FinancialHealthScoreDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\ImportReportResultDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\MonthlyFinancialSummaryDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\SystemOverviewAnalyticsDto.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\dto\TransactionExportFilterRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\export_import\ExcelStatementExporter.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\export_import\ExcelTransactionImporter.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\export_import\PdfStatementExporter.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\repository\AnalyticsRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\repository\AnalyticsRepositoryImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\AnalyticsService.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\AnalyticsServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\FinancialHealthService.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\FinancialHealthServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\ReportExportImportService.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\service\ReportExportImportServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\v2_expansion\AiReceiptOcrProvider.java
-E:\Nhom 3\src\main\java\com\finvault\module4_analytics_reporting\v2_expansion\OcrReceiptResultDto.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\aop\Auditable.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\aop\SecurityAuditAspect.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\controller\AuditTrailApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\controller\DataRecoveryApiController.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\controller\InPlaceAdminCmsController.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\AuditLogFilterRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\AuditLogResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\DataRecoveryResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\SystemCategoryUpdateRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\SystemConfigRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\SystemConfigResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\SystemNotificationRequest.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\dto\SystemNotificationResponseDto.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\entity\AuditLog.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\entity\SystemConfig.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\entity\SystemNotification.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterFilter.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterService.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\repository\AuditLogRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\repository\SystemConfigRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\repository\SystemNotificationRepository.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\AuditLogService.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\AuditLogServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SupportTicketRecoveryService.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SupportTicketRecoveryServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SystemConfigService.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SystemConfigServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SystemNotificationService.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\service\SystemNotificationServiceImpl.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\util\DataMaskingUtil.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\v2_expansion\InvestmentPortfolioProvider.java
-E:\Nhom 3\src\main\java\com\finvault\module5_admin_audit\v2_expansion\PortfolioAssetDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\common\ApiResponse.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\common\BaseEntity.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\common\BusinessException.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\common\GlobalExceptionHandler.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\common\SecurityUtils.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\AsyncConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\DatabaseSequenceSynchronizer.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\JpaAuditingConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\OpenApiConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\SecurityConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\config\WebSocketConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\controller\MainDashboardController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\FinVaultApplication.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\controller\AuthController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\controller\BootstrapController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\controller\TwoFactorApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\controller\UserApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\crypto\AesEncryptionConverter.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\crypto\CryptoConfigValidator.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\crypto\TotpManager.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\BootstrapAdminRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\LoginRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\PasswordChangeDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\RegisterRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\TwoFactorSetupDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\TwoFactorVerifyDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\dto\UserResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\entity\Role.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\entity\User.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\event\UserRegisteredEvent.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\repository\RoleRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\repository\UserRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\BruteForceProtectionService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\CustomUserDetailsService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\LiveUiPermissionEvaluator.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\TwoFactorAuthService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\UserService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\service\UserServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\v2_expansion\PasskeyAuthenticationProvider.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module1_security_rbac\v2_expansion\PasskeyCredentialDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\controller\CategoryApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\controller\TransactionApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\controller\WalletApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\ApprovalDecisionDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\CategoryRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\CategoryResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\ReconciliationReportDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\TransactionRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\TransactionResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\TransferRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletMemberDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\dto\WalletResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\ApprovalStatus.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\Category.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\CategoryType.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\Transaction.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\TransactionType.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\TransferDirection.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\Wallet.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletMember.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletMemberRole.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\entity\WalletType.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\event\TransactionCreatedEvent.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\event\TransactionDeletedEvent.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\event\UserRegistrationEventListener.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\factory\WalletFactory.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\repository\CategoryRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\repository\TransactionRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\repository\WalletMemberRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\repository\WalletRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\scheduler\RecurringTransactionScheduler.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\CategoryService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\CategoryServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\ReconciliationService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\ReconciliationServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\TransactionService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\TransactionServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\WalletService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\service\WalletServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\v2_expansion\BankTransactionPayloadDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module2_wallet_ledger\v2_expansion\OpenBankingSyncProvider.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\controller\BudgetApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\controller\LoanCalculatorApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\controller\SavingGoalApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\Budget50_30_20Request.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\BudgetAlertNotificationDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\BudgetRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\BudgetResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\LoanAmortizationScheduleDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\LoanCalculationRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\LoanCalculationResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalDepositRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\dto\SavingGoalResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\AllocationType.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\Budget.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\BudgetType.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\LoanCalculation.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\LoanCalculationMethod.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\SavingGoal.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\entity\SavingGoalStatus.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\event\TransactionBudgetEventListener.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\repository\BudgetRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\repository\LoanCalculationRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\repository\SavingGoalRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\rule\BudgetAlertRuleEngine.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\rule\BudgetAlertStrategy.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\rule\Critical100AlertStrategy.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\rule\Warning80AlertStrategy.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\scheduler\BudgetRolloverScheduler.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\scheduler\SavingGoalProgressScheduler.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\BudgetService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\BudgetServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\LoanCalculatorService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\LoanCalculatorServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\SavingGoalService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\service\SavingGoalServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\v2_expansion\AiBudgetAdvisorProvider.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\v2_expansion\AiBudgetRecommendationDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module3_budget_goals\websocket\BudgetAlertWebSocketSender.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\controller\AnalyticsApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\controller\ReportApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\CashFlowTrendDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\CategoryExpenseDistributionDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\FinancialHealthScoreDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\ImportReportResultDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\MonthlyFinancialSummaryDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\SystemOverviewAnalyticsDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\dto\TransactionExportFilterRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\export_import\ExcelStatementExporter.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\export_import\ExcelTransactionImporter.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\export_import\ExcelTransactionRowService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\export_import\PdfStatementExporter.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\repository\AnalyticsRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\repository\AnalyticsRepositoryImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\AnalyticsService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\AnalyticsServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\FinancialHealthService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\FinancialHealthServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\ReportExportImportService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\service\ReportExportImportServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\v2_expansion\AiReceiptOcrProvider.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module4_analytics_reporting\v2_expansion\OcrReceiptResultDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\aop\Auditable.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\aop\SecurityAuditAspect.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\controller\AuditTrailApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\controller\DataRecoveryApiController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\controller\InPlaceAdminCmsController.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\AuditLogFilterRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\AuditLogResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\DataRecoveryResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\SystemCategoryUpdateRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\SystemConfigRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\SystemConfigResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\SystemNotificationRequest.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\dto\SystemNotificationResponseDto.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\entity\AuditLog.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\entity\SystemConfig.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\entity\SystemNotification.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterFilter.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\ratelimit\RateLimiterServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\repository\AuditLogRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\repository\SystemConfigRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\repository\SystemNotificationRepository.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\AuditLogPersistenceService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\AuditLogService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\AuditLogServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SupportTicketRecoveryService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SupportTicketRecoveryServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SystemConfigService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SystemConfigServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SystemNotificationService.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\service\SystemNotificationServiceImpl.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\util\DataMaskingUtil.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\v2_expansion\InvestmentPortfolioProvider.java
+C:\Users\Khoa\OneDrive\Desktop\FinVault-System-Enterprise-Architecture\src\main\java\com\finvault\module5_admin_audit\v2_expansion\PortfolioAssetDto.java

@@ -7,11 +7,17 @@ import com.finvault.module1_security_rbac.entity.User;
 import com.finvault.module1_security_rbac.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * ==============================================================================
@@ -30,10 +36,18 @@ public class TwoFactorAuthService {
 
     private final UserRepository userRepository;
     private final TotpManager totpManager;
+    private final PasswordEncoder passwordEncoder;
 
-    public TwoFactorAuthService(UserRepository userRepository, TotpManager totpManager) {
+    public TwoFactorAuthService(UserRepository userRepository,
+                                TotpManager totpManager,
+                                @Lazy PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.totpManager = totpManager;
+        this.passwordEncoder = passwordEncoder;
+    }
+
+    private PasswordEncoder getPasswordEncoder() {
+        return (passwordEncoder != null) ? passwordEncoder : new BCryptPasswordEncoder();
     }
 
     /**
@@ -44,12 +58,25 @@ public class TwoFactorAuthService {
         User user = userRepository.findByUsernameAndIsDeletedFalse(username)
                 .orElseThrow(() -> new BusinessException("NOT_FOUND", "Không tìm thấy người dùng", HttpStatus.NOT_FOUND));
 
+        if (Boolean.TRUE.equals(user.getIsTwoFactorEnabled())) {
+            log.warn("Người dùng [{}] đã kích hoạt 2FA trước đó, đang khởi tạo secret mới thay thế", username);
+        }
+
         String secretKey = totpManager.generateSecretKey();
-        user.setTwoFactorSecret(secretKey);
-        userRepository.save(user);
+        user.setPendingTwoFactorSecret(secretKey);
 
         String qrCodeUrl = totpManager.getQrCodeUrl(username, secretKey);
         List<String> scratchCodes = totpManager.generateScratchCodes();
+
+        // 1. Hash và lưu danh sách Scratch Codes (dạng BCrypt phân cách bởi ";") vào User
+        if (scratchCodes != null && !scratchCodes.isEmpty()) {
+            String hashedCodes = scratchCodes.stream()
+                    .map(c -> getPasswordEncoder().encode(c.trim()))
+                    .collect(Collectors.joining(";"));
+            user.setScratchCodes(hashedCodes);
+        }
+
+        userRepository.save(user);
 
         log.info("Khởi tạo thiết lập 2FA thành công cho người dùng [{}]", username);
         return new TwoFactorSetupDto(secretKey, qrCodeUrl, scratchCodes);
@@ -63,16 +90,18 @@ public class TwoFactorAuthService {
         User user = userRepository.findByUsernameAndIsDeletedFalse(username)
                 .orElseThrow(() -> new BusinessException("NOT_FOUND", "Không tìm thấy người dùng", HttpStatus.NOT_FOUND));
 
-        if (user.getTwoFactorSecret() == null || user.getTwoFactorSecret().isBlank()) {
+        if (user.getPendingTwoFactorSecret() == null || user.getPendingTwoFactorSecret().isBlank()) {
             throw new BusinessException("TWO_FA_NOT_INITIATED", "Bạn chưa khởi tạo thiết lập 2FA");
         }
 
-        boolean isValid = totpManager.verifyCode(user.getTwoFactorSecret(), code);
+        boolean isValid = totpManager.verifyCode(user.getPendingTwoFactorSecret(), code);
         if (!isValid) {
-            log.warn("Kích hoạt 2FA thất bại: Mã TOTP '{}' không hợp lệ cho user [{}]", code, username);
+            log.warn("Kích hoạt 2FA thất bại cho user [{}]", username);
             return false;
         }
 
+        user.setTwoFactorSecret(user.getPendingTwoFactorSecret());
+        user.setPendingTwoFactorSecret(null);
         user.setIsTwoFactorEnabled(true);
         userRepository.save(user);
         log.info("Kích hoạt bảo mật 2FA (Google Authenticator) THÀNH CÔNG cho người dùng [{}]", username);
@@ -99,15 +128,17 @@ public class TwoFactorAuthService {
 
         user.setIsTwoFactorEnabled(false);
         user.setTwoFactorSecret(null);
+        user.setPendingTwoFactorSecret(null);
+        user.setScratchCodes(null);
         userRepository.save(user);
         log.info("Đã tắt bảo mật 2FA thành công cho người dùng [{}]", username);
         return true;
     }
 
     /**
-     * Xác thực mã TOTP trong quá trình đăng nhập hoặc thực hiện hành động nhạy cảm
+     * Xác thực mã TOTP hoặc Scratch Code dự phòng trong quá trình đăng nhập
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public boolean verifyTotpCode(String username, String code) {
         User user = userRepository.findByUsernameAndIsDeletedFalse(username)
                 .orElseThrow(() -> new BusinessException("NOT_FOUND", "Không tìm thấy người dùng", HttpStatus.NOT_FOUND));
@@ -120,6 +151,30 @@ public class TwoFactorAuthService {
             return false;
         }
 
-        return totpManager.verifyCode(user.getTwoFactorSecret(), code);
+        // 1. Thử xác thực mã TOTP 6 số
+        boolean isValidTotp = totpManager.verifyCode(user.getTwoFactorSecret(), code);
+        if (isValidTotp) {
+            return true;
+        }
+
+        // 2. Nếu TOTP fail, kiểm tra xem input có khớp với Scratch Code (mã khôi phục) nào không
+        if (code != null && !code.isBlank() && user.getScratchCodes() != null && !user.getScratchCodes().isBlank()) {
+            String trimmedInput = code.trim();
+            String[] hashedList = user.getScratchCodes().split(";");
+            for (int i = 0; i < hashedList.length; i++) {
+                String hashed = hashedList[i].trim();
+                if (!hashed.isEmpty() && getPasswordEncoder().matches(trimmedInput, hashed)) {
+                    // Match! Xóa scratch code này khỏi danh sách (single-use)
+                    List<String> remaining = new ArrayList<>(Arrays.asList(hashedList));
+                    remaining.remove(i);
+                    user.setScratchCodes(String.join(";", remaining));
+                    userRepository.save(user);
+                    log.info("Xác thực 2FA thành công bằng Scratch Code dự phòng cho user [{}]. Mã đã bị vô hiệu hóa sau sử dụng.", username);
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }

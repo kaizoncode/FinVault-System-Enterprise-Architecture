@@ -72,7 +72,7 @@
                             <label for="username" class="form-label fw-semibold small text-secondary">Tên đăng nhập / Email</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-person"></i></span>
-                                <input type="text" class="form-control bg-light border-start-0" id="username" name="username" placeholder="Nhập tên đăng nhập" required autofocus>
+                                <input type="text" class="form-control bg-light border-start-0" id="username" name="username" th:value="${prefillUsername != null ? prefillUsername : (param.switchUser != null ? param.switchUser : '')}" placeholder="Nhập tên đăng nhập" required autofocus>
                             </div>
                         </div>
 

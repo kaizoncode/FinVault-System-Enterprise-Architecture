@@ -82,6 +82,16 @@ public class Transaction extends BaseEntity {
     @Column(name = "recurring_interval", length = 20)
     private String recurringInterval;
 
+    @Column(name = "last_recurring_date")
+    private java.time.LocalDate lastRecurringDate;
+
+    @Column(name = "linked_transaction_id")
+    private Long linkedTransactionId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "transfer_direction", length = 20)
+    private TransferDirection transferDirection;
+
     public Transaction() {
     }
 
@@ -229,6 +239,30 @@ public class Transaction extends BaseEntity {
 
     public void setRecurringInterval(String recurringInterval) {
         this.recurringInterval = recurringInterval;
+    }
+
+    public java.time.LocalDate getLastRecurringDate() {
+        return lastRecurringDate;
+    }
+
+    public void setLastRecurringDate(java.time.LocalDate lastRecurringDate) {
+        this.lastRecurringDate = lastRecurringDate;
+    }
+
+    public Long getLinkedTransactionId() {
+        return linkedTransactionId;
+    }
+
+    public void setLinkedTransactionId(Long linkedTransactionId) {
+        this.linkedTransactionId = linkedTransactionId;
+    }
+
+    public TransferDirection getTransferDirection() {
+        return transferDirection;
+    }
+
+    public void setTransferDirection(TransferDirection transferDirection) {
+        this.transferDirection = transferDirection;
     }
 
     @Override

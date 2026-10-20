@@ -48,7 +48,7 @@ public interface WalletRepository extends JpaRepository<Wallet, Long> {
     /**
      * Tra cứu tất cả các ví gia đình mà người dùng có quyền truy cập (là chủ sở hữu HOẶC thành viên)
      */
-    @Query("SELECT DISTINCT w FROM Wallet w LEFT JOIN w.members m WHERE w.isFamilyWallet = true AND w.isDeleted = false AND (w.user.id = :userId OR (m.user.id = :userId AND m.isActive = true))")
+    @Query("SELECT DISTINCT w FROM Wallet w LEFT JOIN w.members m WHERE (w.isFamilyWallet = true OR w.walletType = com.finvault.module2_wallet_ledger.entity.WalletType.FAMILY_FUND) AND w.isDeleted = false AND (w.user.id = :userId OR (m.user.id = :userId AND m.isActive = true))")
     List<Wallet> findFamilyWalletsAccessibleByUser(@Param("userId") Long userId);
 
     /**
