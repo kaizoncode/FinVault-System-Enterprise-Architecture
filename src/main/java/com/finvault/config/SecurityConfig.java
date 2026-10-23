@@ -168,12 +168,13 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .authenticationProvider(authenticationProvider())
-            // Kích hoạt bảo vệ CSRF chuẩn qua CookieCsrfTokenRepository (chỉ miễn trừ H2 Console và WebSocket STOMP)
+            // Kích hoạt bảo vệ CSRF chuẩn qua CookieCsrfTokenRepository (miễn trừ H2 Console, WebSocket STOMP và Logout an toàn)
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .ignoringRequestMatchers(
                     new AntPathRequestMatcher("/h2-console/**"),
-                    new AntPathRequestMatcher("/ws/**")
+                    new AntPathRequestMatcher("/ws/**"),
+                    new AntPathRequestMatcher("/logout")
                 )
             )
             // Cấu hình hiển thị iframe cho H2 Web Console
@@ -208,9 +209,12 @@ public class SecurityConfig {
                 .failureHandler(authenticationFailureHandler())
                 .permitAll()
             )
-            // Cấu hình Đăng xuất an toàn: Chỉ chấp nhận phương thức POST có kèm CSRF token hợp lệ
+            // Cấu hình Đăng xuất an toàn: Hỗ trợ cả GET và POST, xóa sạch Session & Cookies
             .logout(logout -> logout
-                .logoutRequestMatcher(new AntPathRequestMatcher("/logout", "POST"))
+                .logoutRequestMatcher(new OrRequestMatcher(
+                    new AntPathRequestMatcher("/logout", "GET"),
+                    new AntPathRequestMatcher("/logout", "POST")
+                ))
                 .logoutSuccessHandler((request, response, authentication) -> {
                     if (authentication != null) {
                         String username = authentication.getName();
@@ -243,7 +247,8 @@ public class SecurityConfig {
                     response.sendRedirect(request.getContextPath() + "/login?logout=true");
                 })
                 .invalidateHttpSession(true)
-                .deleteCookies("JSESSIONID")
+                .clearAuthentication(true)
+                .deleteCookies("JSESSIONID", "XSRF-TOKEN")
                 .permitAll()
             )
             // Quản lý phiên làm việc Session

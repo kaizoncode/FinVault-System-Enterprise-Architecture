@@ -93,7 +93,7 @@ public class AnalyticsApiController {
     /**
      * Đánh giá Điểm Sức khỏe Tài chính toàn diện (Thang điểm 0 - 100)
      */
-    @GetMapping("/financial-health")
+    @GetMapping(value = {"/financial-health", "/health-score"})
     public ResponseEntity<ApiResponse<FinancialHealthScoreDto>> getFinancialHealthScore() {
         String username = SecurityUtils.getCurrentUsername();
         FinancialHealthScoreDto dto = financialHealthService.calculateFinancialHealth(username);

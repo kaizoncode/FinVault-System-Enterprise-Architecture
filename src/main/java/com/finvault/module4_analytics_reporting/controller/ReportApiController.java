@@ -39,9 +39,21 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo sao kê giao dịch cá nhân ra file Excel (.xlsx)
+     * Xuất báo cáo sao kê giao dịch cá nhân ra file Excel (.xlsx) - Hỗ trợ GET & POST
      */
-    @PostMapping("/export/excel")
+    @GetMapping(value = {"/export/excel", "/transactions/export/excel"})
+    public ResponseEntity<byte[]> exportPersonalExcelGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        String username = SecurityUtils.getCurrentUsername();
+        byte[] bytes = reportService.exportTransactionsToExcel(username, filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-statement-" + username + ".xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
+    @PostMapping(value = {"/export/excel", "/transactions/export/excel"})
     public ResponseEntity<byte[]> exportPersonalExcel(
             @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();
@@ -54,9 +66,21 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo sao kê giao dịch cá nhân ra file PDF (.pdf)
+     * Xuất báo cáo sao kê giao dịch cá nhân ra file PDF (.pdf) - Hỗ trợ GET & POST
      */
-    @PostMapping("/export/pdf")
+    @GetMapping(value = {"/export/pdf", "/financial-statement/pdf", "/transactions/export/pdf"})
+    public ResponseEntity<byte[]> exportPersonalPdfGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        String username = SecurityUtils.getCurrentUsername();
+        byte[] bytes = reportService.exportTransactionsToPdf(username, filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-statement-" + username + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(bytes);
+    }
+
+    @PostMapping(value = {"/export/pdf", "/financial-statement/pdf", "/transactions/export/pdf"})
     public ResponseEntity<byte[]> exportPersonalPdf(
             @RequestBody(required = false) @Valid TransactionExportFilterRequest filter) {
         String username = SecurityUtils.getCurrentUsername();
@@ -69,8 +93,20 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo kiểm toán toàn hệ thống ra Excel (Super Admin / Auditor)
+     * Xuất báo cáo kiểm toán toàn hệ thống ra Excel (Super Admin / Auditor) - Hỗ trợ GET & POST
      */
+    @GetMapping(value = {"/system/export/excel"})
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
+    public ResponseEntity<byte[]> exportSystemExcelGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        byte[] bytes = reportService.exportSystemTransactionsToExcel(filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-system-audit.xlsx\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(bytes);
+    }
+
     @PostMapping("/system/export/excel")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
     public ResponseEntity<byte[]> exportSystemExcel(
@@ -84,8 +120,20 @@ public class ReportApiController {
     }
 
     /**
-     * Xuất báo cáo kiểm toán toàn hệ thống ra PDF (Super Admin / Auditor)
+     * Xuất báo cáo kiểm toán toàn hệ thống ra PDF (Super Admin / Auditor) - Hỗ trợ GET & POST
      */
+    @GetMapping(value = {"/system/export/pdf"})
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
+    public ResponseEntity<byte[]> exportSystemPdfGet(
+            @ModelAttribute TransactionExportFilterRequest filter) {
+        byte[] bytes = reportService.exportSystemTransactionsToPdf(filter);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"finvault-system-audit.pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(bytes);
+    }
+
     @PostMapping("/system/export/pdf")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'SYSTEM_AUDITOR')")
     public ResponseEntity<byte[]> exportSystemPdf(

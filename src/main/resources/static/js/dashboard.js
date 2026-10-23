@@ -699,3 +699,191 @@ function setupAdminLiveCms() {
             });
     });
 }
+
+// ==============================================================================
+// 12. GOOGLE AUTHENTICATOR 2FA CLIENT LOGIC (Member 1 - Security & IAM)
+// ==============================================================================
+window.loadTwoFactorStatus = function () {
+    const alertEl = document.getElementById('twoFactorAlert');
+    if (alertEl) {
+        alertEl.classList.add('d-none');
+        alertEl.textContent = '';
+    }
+
+    const statusText = document.getElementById('twoFactorStatusText');
+    const statusBadge = document.getElementById('twoFactorStatusBadge');
+    const disabledSection = document.getElementById('twoFactorDisabledSection');
+    const enabledSection = document.getElementById('twoFactorEnabledSection');
+    const step1 = document.getElementById('twoFactorSetupStep1');
+    const step2 = document.getElementById('twoFactorSetupStep2');
+
+    if (statusText) statusText.textContent = 'Đang kiểm tra...';
+
+    fetch('/api/2fa/status', {
+        headers: Object.assign({ 'Accept': 'application/json' }, window.getCsrfHeaders())
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success && result.data) {
+                const isEnabled = !!result.data.isTwoFactorEnabled;
+                if (isEnabled) {
+                    if (statusText) statusText.textContent = 'Đang Bật (Google Authenticator)';
+                    if (statusBadge) {
+                        statusBadge.className = 'badge bg-success';
+                        statusBadge.textContent = 'Đã Bật';
+                    }
+                    if (disabledSection) disabledSection.style.display = 'none';
+                    if (enabledSection) enabledSection.style.display = 'block';
+                } else {
+                    if (statusText) statusText.textContent = 'Chưa Kích Hoạt';
+                    if (statusBadge) {
+                        statusBadge.className = 'badge bg-warning text-dark';
+                        statusBadge.textContent = 'Chưa Bật';
+                    }
+                    if (disabledSection) disabledSection.style.display = 'block';
+                    if (enabledSection) enabledSection.style.display = 'none';
+                    if (step1) step1.style.display = 'block';
+                    if (step2) step2.style.display = 'none';
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi kiểm tra trạng thái 2FA:', err);
+            if (statusText) statusText.textContent = 'Không thể kiểm tra';
+        });
+};
+
+window.startTwoFactorSetup = function () {
+    const alertEl = document.getElementById('twoFactorAlert');
+    const step1 = document.getElementById('twoFactorSetupStep1');
+    const step2 = document.getElementById('twoFactorSetupStep2');
+    const qrImg = document.getElementById('twoFactorQrImage');
+    const secretKeyInput = document.getElementById('twoFactorSecretKey');
+
+    fetch('/api/2fa/setup', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, window.getCsrfHeaders())
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success && result.data) {
+                const secret = result.data.secretKey || '';
+                const qrUrl = result.data.qrCodeUrl || '';
+
+                if (secretKeyInput) secretKeyInput.value = secret;
+                if (qrImg) {
+                    qrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(qrUrl);
+                }
+
+                if (step1) step1.style.display = 'none';
+                if (step2) step2.style.display = 'block';
+            } else {
+                if (alertEl) {
+                    alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                    alertEl.textContent = result.message || 'Không thể khởi tạo cấu hình 2FA.';
+                    alertEl.classList.remove('d-none');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi khởi tạo 2FA:', err);
+            if (alertEl) {
+                alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                alertEl.textContent = 'Lỗi kết nối khi khởi tạo 2FA.';
+                alertEl.classList.remove('d-none');
+            }
+        });
+};
+
+window.confirmEnableTwoFactor = function () {
+    const codeInput = document.getElementById('twoFactorVerifyCode');
+    const alertEl = document.getElementById('twoFactorAlert');
+    const code = (codeInput ? codeInput.value : '').trim();
+
+    if (!code || code.length !== 6) {
+        if (alertEl) {
+            alertEl.className = 'alert alert-warning py-2 px-3 small rounded-3 mb-3';
+            alertEl.textContent = 'Vui lòng nhập đúng mã 6 chữ số từ ứng dụng Google Authenticator.';
+            alertEl.classList.remove('d-none');
+        }
+        return;
+    }
+
+    fetch('/api/2fa/enable', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, window.getCsrfHeaders()),
+        body: JSON.stringify({ code: code })
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                if (alertEl) {
+                    alertEl.className = 'alert alert-success py-2 px-3 small rounded-3 mb-3';
+                    alertEl.textContent = 'Kích hoạt 2FA (Google Authenticator) thành công!';
+                    alertEl.classList.remove('d-none');
+                }
+                setTimeout(() => window.loadTwoFactorStatus(), 800);
+            } else {
+                if (alertEl) {
+                    alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                    alertEl.textContent = result.message || 'Mã xác thực 2FA không chính xác.';
+                    alertEl.classList.remove('d-none');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi kích hoạt 2FA:', err);
+            if (alertEl) {
+                alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                alertEl.textContent = 'Lỗi hệ thống khi kích hoạt 2FA.';
+                alertEl.classList.remove('d-none');
+            }
+        });
+};
+
+window.confirmDisableTwoFactor = function () {
+    const codeInput = document.getElementById('twoFactorDisableCode');
+    const alertEl = document.getElementById('twoFactorAlert');
+    const code = (codeInput ? codeInput.value : '').trim();
+
+    if (!code) {
+        if (alertEl) {
+            alertEl.className = 'alert alert-warning py-2 px-3 small rounded-3 mb-3';
+            alertEl.textContent = 'Vui lòng nhập mã 6 số TOTP để xác nhận tắt 2FA.';
+            alertEl.classList.remove('d-none');
+        }
+        return;
+    }
+
+    fetch('/api/2fa/disable', {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, window.getCsrfHeaders()),
+        body: JSON.stringify({ code: code })
+    })
+        .then(res => res.json())
+        .then(result => {
+            if (result.success) {
+                if (alertEl) {
+                    alertEl.className = 'alert alert-info py-2 px-3 small rounded-3 mb-3';
+                    alertEl.textContent = 'Đã tắt bảo mật 2 lớp thành công.';
+                    alertEl.classList.remove('d-none');
+                }
+                setTimeout(() => window.loadTwoFactorStatus(), 800);
+            } else {
+                if (alertEl) {
+                    alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                    alertEl.textContent = result.message || 'Mã xác thực không chính xác để tắt 2FA.';
+                    alertEl.classList.remove('d-none');
+                }
+            }
+        })
+        .catch(err => {
+            console.error('Lỗi tắt 2FA:', err);
+            if (alertEl) {
+                alertEl.className = 'alert alert-danger py-2 px-3 small rounded-3 mb-3';
+                alertEl.textContent = 'Lỗi hệ thống khi tắt 2FA.';
+                alertEl.classList.remove('d-none');
+            }
+        });
+};
+

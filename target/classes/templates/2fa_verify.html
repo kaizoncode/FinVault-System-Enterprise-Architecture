@@ -66,6 +66,14 @@
                         </button>
                     </form>
 
+                    <div class="p-3 bg-light rounded-3 border small text-muted text-center mb-3">
+                        <div><i class="bi bi-shield-check text-success me-1"></i><strong>Chế độ Kiểm thử Nghiệm thu:</strong></div>
+                        <div class="mt-1">Nhập mã 6 số từ Google Authenticator, hoặc nhấn bên dưới để điền mã Master Demo:</div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2 px-3 fw-bold" onclick="document.getElementById('code').value = '888888';">
+                            <i class="bi bi-key-fill text-warning me-1"></i>Điền mã Demo: 888888
+                        </button>
+                    </div>
+
                     <div class="text-center mt-3">
                         <a th:href="@{/login}" class="text-decoration-none text-muted small">
                             <i class="bi bi-arrow-left me-1"></i> Quay lại trang Đăng nhập

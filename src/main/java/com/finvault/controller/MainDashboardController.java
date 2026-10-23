@@ -14,6 +14,8 @@ import com.finvault.module3_budget_goals.dto.SavingGoalResponseDto;
 import com.finvault.module3_budget_goals.service.BudgetService;
 import com.finvault.module3_budget_goals.service.SavingGoalService;
 import com.finvault.module4_analytics_reporting.dto.FinancialHealthScoreDto;
+import com.finvault.module4_analytics_reporting.dto.SystemOverviewAnalyticsDto;
+import com.finvault.module4_analytics_reporting.service.AnalyticsService;
 import com.finvault.module4_analytics_reporting.service.FinancialHealthService;
 import com.finvault.module5_admin_audit.dto.AuditLogResponseDto;
 import com.finvault.module5_admin_audit.dto.DataRecoveryResponseDto;
@@ -60,6 +62,7 @@ public class MainDashboardController {
     private final BudgetService budgetService;
     private final SavingGoalService savingGoalService;
     private final FinancialHealthService financialHealthService;
+    private final AnalyticsService analyticsService;
     private final CategoryService categoryService;
     private final SystemConfigService systemConfigService;
     private final SystemNotificationService systemNotificationService;
@@ -73,6 +76,7 @@ public class MainDashboardController {
             BudgetService budgetService,
             SavingGoalService savingGoalService,
             FinancialHealthService financialHealthService,
+            AnalyticsService analyticsService,
             CategoryService categoryService,
             SystemConfigService systemConfigService,
             SystemNotificationService systemNotificationService,
@@ -84,6 +88,7 @@ public class MainDashboardController {
         this.budgetService = budgetService;
         this.savingGoalService = savingGoalService;
         this.financialHealthService = financialHealthService;
+        this.analyticsService = analyticsService;
         this.categoryService = categoryService;
         this.systemConfigService = systemConfigService;
         this.systemNotificationService = systemNotificationService;
@@ -156,13 +161,26 @@ public class MainDashboardController {
         List<SavingGoalResponseDto> savingGoals = savingGoalService.getUserGoals(username);
         model.addAttribute("savingGoals", savingGoals);
 
-        // 6. Điểm sức khỏe tài chính toàn diện CFP 4 Trụ cột
-        try {
-            FinancialHealthScoreDto healthScore = financialHealthService.calculateFinancialHealth(username);
-            model.addAttribute("healthScore", healthScore);
-        } catch (Exception ex) {
-            log.warn("Không thể tính điểm sức khỏe tài chính cho [{}]: {}", username, ex.getMessage());
+        // 6. Sức khỏe tài chính CFP (Chỉ áp dụng cho User thông thường & Gia đình; KHÔNG áp dụng cho Admin/Auditor)
+        if (!isSuperAdmin && !isSystemAuditor) {
+            try {
+                FinancialHealthScoreDto healthScore = financialHealthService.calculateFinancialHealth(username);
+                model.addAttribute("healthScore", healthScore);
+            } catch (Exception ex) {
+                log.warn("Không thể tính điểm sức khỏe tài chính cho [{}]: {}", username, ex.getMessage());
+                model.addAttribute("healthScore", null);
+            }
+            model.addAttribute("systemOverview", null);
+        } else {
             model.addAttribute("healthScore", null);
+            // Admin & Auditor: Cung cấp Báo cáo Giám sát Vĩ mô toàn hệ thống (System Macro Overview)
+            try {
+                SystemOverviewAnalyticsDto systemOverview = analyticsService.getSystemOverviewAnalytics();
+                model.addAttribute("systemOverview", systemOverview);
+            } catch (Exception ex) {
+                log.warn("Không thể lấy thống kê vĩ mô hệ thống: {}", ex.getMessage());
+                model.addAttribute("systemOverview", null);
+            }
         }
 
         // 7. Danh mục thu chi khả dụng để phục vụ Modal thêm giao dịch nhanh

@@ -98,6 +98,7 @@ com\finvault\module3_budget_goals\rule\BudgetAlertStrategy.class
 com\finvault\module1_security_rbac\entity\User.class
 com\finvault\module3_budget_goals\dto\SavingGoalRequest.class
 com\finvault\common\BusinessException.class
+com\finvault\module1_security_rbac\service\SecurityDataInitializer.class
 com\finvault\module2_wallet_ledger\controller\CategoryApiController.class
 com\finvault\module5_admin_audit\dto\AuditLogResponseDto.class
 com\finvault\module2_wallet_ledger\entity\WalletMember.class

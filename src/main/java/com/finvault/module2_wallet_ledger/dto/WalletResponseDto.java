@@ -126,6 +126,10 @@ public class WalletResponseDto implements Serializable {
         return bankAccountNumber;
     }
 
+    public String getAccountNumber() {
+        return bankAccountNumber;
+    }
+
     public void setBankAccountNumber(String bankAccountNumber) {
         this.bankAccountNumber = bankAccountNumber;
     }

@@ -71,36 +71,63 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
 
     @Override
     public FinancialHealthScoreDto calculateFinancialHealthByUserId(Long userId) {
-        log.info("Bắt đầu phân tích và đánh giá Sức khỏe tài chính cho User ID: {}", userId);
+        log.info("Bắt đầu phân tích và đánh giá Sức khỏe tài chính chuyên sâu cho User ID: {}", userId);
 
         LocalDate today = LocalDate.now();
         LocalDate past90Days = today.minusDays(90);
+        LocalDate past30Days = today.minusDays(30);
 
-        // 1. Phân tích Dòng tiền 90 ngày gần nhất (Trung bình 3 tháng)
+        // 1. Phân tích Dòng tiền: Lấy cả 90 ngày và 30 ngày gần nhất để phản ánh độ nhạy chi tiêu
         BigDecimal totalIncome90d = analyticsRepository.sumTotalIncome(userId, past90Days, today);
         BigDecimal totalExpense90d = analyticsRepository.sumTotalExpense(userId, past90Days, today);
+        BigDecimal expense30d = analyticsRepository.sumTotalExpense(userId, past30Days, today);
 
         BigDecimal monthlyIncome = totalIncome90d.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
-        BigDecimal monthlyExpense = totalExpense90d.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP);
+        // Tốc độ đốt tiền (Burn rate) lấy giá trị lớn hơn giữa trung bình 3 tháng và 30 ngày gần nhất
+        BigDecimal monthlyExpense = totalExpense90d.divide(BigDecimal.valueOf(3), 2, RoundingMode.HALF_UP).max(expense30d);
 
-        // --- TRỤ CỘT 1: TỶ LỆ TIẾT KIỆM (Max 30 điểm) ---
+        // 2. Kiểm tra Số dư Khả dụng (Liquid Cash / Assets) trong toàn bộ các ví
+        List<Wallet> wallets = walletRepository.findAllByUserIdAndIsDeletedFalse(userId);
+        BigDecimal totalLiquidAssets = wallets.stream()
+                .map(w -> w.getBalance() != null ? w.getBalance() : BigDecimal.ZERO)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<String> strengths = new ArrayList<>();
+        List<String> recommendations = new ArrayList<>();
+
+        // --- TRỤ CỘT 1: TỶ LỆ TIẾT KIỆM & DÒNG TIỀN (Max 30 điểm) ---
         BigDecimal savingsRate = BigDecimal.ZERO;
         int savingsScore = 0;
+
         if (totalIncome90d.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal netSavings = totalIncome90d.subtract(totalExpense90d);
             savingsRate = netSavings.multiply(BigDecimal.valueOf(100)).divide(totalIncome90d, 2, RoundingMode.HALF_UP);
 
-            if (savingsRate.compareTo(new BigDecimal("20.00")) >= 0) {
-                savingsScore = 30; // Rất tốt, chuẩn 50/30/20
+            if (savingsRate.compareTo(new BigDecimal("30.00")) >= 0) {
+                savingsScore = 30; // Tiết kiệm vượt trội (>= 30%)
+                strengths.add("Tỷ lệ tiết kiệm xuất sắc (" + savingsRate.toPlainString() + "%), dòng tiền thặng dư rất mạnh.");
+            } else if (savingsRate.compareTo(new BigDecimal("20.00")) >= 0) {
+                savingsScore = 25; // Đạt chuẩn vàng 50/30/20 (20 - 30%)
+                strengths.add("Duy trì dòng tiền dương ổn định chuẩn 50/30/20 (tiết kiệm " + savingsRate.toPlainString() + "%).");
             } else if (savingsRate.compareTo(new BigDecimal("10.00")) >= 0) {
-                savingsScore = 20; // Khá tốt
-            } else if (savingsRate.compareTo(BigDecimal.ZERO) > 0) {
-                savingsScore = 10; // Có tiết kiệm nhưng còn thấp
+                savingsScore = 18; // Khá (10 - 20%)
+                recommendations.add("Tỷ lệ tiết kiệm đạt " + savingsRate.toPlainString() + "%. Cần tối ưu thêm các khoản chi sở thích (Wants) để nâng lên mốc 20%.");
+            } else if (savingsRate.compareTo(BigDecimal.ZERO) >= 0) {
+                savingsScore = 10; // Thu chi suýt soát (0 - 10%)
+                recommendations.add("Cảnh báo thu chi suýt soát (chỉ còn dư " + savingsRate.toPlainString() + "%). Rất dễ thâm hụt nếu có phát sinh đột xuất.");
+            } else if (savingsRate.compareTo(new BigDecimal("-20.00")) >= 0) {
+                savingsScore = 4; // Bội chi nhẹ (-20% đến 0%)
+                recommendations.add("⚠️ BỘI CHI DÒNG TIỀN: Bạn đang chi tiêu vượt thu nhập " + savingsRate.abs().toPlainString() + "%. Bạn đang phải tiêu lạm vào tiền tích lũy cũ!");
             } else {
-                savingsScore = 0; // Chi tiêu vượt thu nhập (âm tiền)
+                savingsScore = 0; // Bội chi nặng (< -20%)
+                recommendations.add("🚨 BỘI CHI NẶNG: Chi tiêu vượt quá mức thu nhập tới " + savingsRate.abs().toPlainString() + "%. Dòng tiền đang bị âm nghiêm trọng!");
             }
+        } else if (totalExpense90d.compareTo(BigDecimal.ZERO) > 0) {
+            savingsScore = 0;
+            savingsRate = new BigDecimal("-100.00");
+            recommendations.add("🚨 Chưa ghi nhận nguồn thu nhập nào nhưng chi tiêu vẫn liên tục phát sinh (" + formatMoney(totalExpense90d) + ").");
         } else {
-            savingsScore = 10; // Chưa có thu nhập ghi nhận, mức trung tính
+            savingsScore = 15; // Chưa có thu chi
         }
 
         // --- TRỤ CỘT 2: KỶ LUẬT NGÂN SÁCH (Max 25 điểm) ---
@@ -113,39 +140,50 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             budgetAdherence = BigDecimal.valueOf(compliantCount * 100L)
                     .divide(BigDecimal.valueOf(activeBudgets.size()), 2, RoundingMode.HALF_UP);
 
+            List<String> brokenBudgets = activeBudgets.stream()
+                    .filter(Budget::isOverBudget)
+                    .map(b -> b.getBudgetName() + " (" + b.getUsagePercentage().toPlainString() + "%)")
+                    .toList();
+
             if (budgetAdherence.compareTo(new BigDecimal("100.00")) >= 0) {
                 budgetScore = 25;
+                strengths.add("Tuân thủ 100% trần ngân sách đã đề ra, kiểm soát chi tiêu rất chặt chẽ.");
             } else if (budgetAdherence.compareTo(new BigDecimal("75.00")) >= 0) {
                 budgetScore = 18;
+                recommendations.add("Chú ý danh mục ngân sách đã vượt hạn mức: " + String.join(", ", brokenBudgets) + ".");
             } else if (budgetAdherence.compareTo(new BigDecimal("50.00")) >= 0) {
                 budgetScore = 10;
+                recommendations.add("Cảnh báo: Hơn 25% danh mục ngân sách đã bị vỡ trần chi tiêu (" + String.join(", ", brokenBudgets) + "). Cần phong tỏa chi tiêu các nhóm này.");
             } else {
-                budgetScore = 5;
+                budgetScore = 3;
+                recommendations.add("🚨 VỠ KẾ HOẠCH TÀI CHÍNH: Đa số các ngân sách đã bị bội chi (" + String.join(", ", brokenBudgets) + ").");
             }
         }
 
-        // --- TRỤ CỘT 3: QUỸ DỰ PHÒNG KHẨN CẤP (Max 25 điểm) ---
-        List<Wallet> wallets = walletRepository.findAllByUserIdAndIsDeletedFalse(userId);
-        BigDecimal totalLiquidAssets = wallets.stream()
-                .map(Wallet::getBalance)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        BigDecimal totalSavings = savingGoalRepository.sumTotalCurrentAmountByUserId(userId);
-        BigDecimal totalReserves = totalLiquidAssets.add(totalSavings);
-
+        // --- TRỤ CỘT 3: QUỸ DỰ PHÒNG KHẨN CẤP & THANH KHOẢN (Max 25 điểm) ---
         BigDecimal emergencyMonths = BigDecimal.ZERO;
         int emergencyScore = 0;
-        if (monthlyExpense.compareTo(BigDecimal.ZERO) > 0) {
-            emergencyMonths = totalReserves.divide(monthlyExpense, 2, RoundingMode.HALF_UP);
+
+        if (totalLiquidAssets.compareTo(BigDecimal.ZERO) <= 0) {
+            // Hết nhẵn tiền mặt hoặc âm tài khoản
+            emergencyScore = 0;
+            emergencyMonths = BigDecimal.ZERO;
+            recommendations.add("🚨 CẠN KIỆT THANH KHOẢN: Tổng số dư ví khả dụng hiện tại là " + formatMoney(totalLiquidAssets) + ". Bạn đã tiêu hết sạch tiền mặt hoặc đang gánh nợ tín dụng!");
+        } else if (monthlyExpense.compareTo(BigDecimal.ZERO) > 0) {
+            emergencyMonths = totalLiquidAssets.divide(monthlyExpense, 2, RoundingMode.HALF_UP);
 
             if (emergencyMonths.compareTo(new BigDecimal("6.00")) >= 0) {
                 emergencyScore = 25; // An toàn tuyệt đối (>= 6 tháng)
+                strengths.add("Quỹ dự phòng khẩn cấp rất vững chắc (" + emergencyMonths.toPlainString() + " tháng chi tiêu).");
             } else if (emergencyMonths.compareTo(new BigDecimal("3.00")) >= 0) {
                 emergencyScore = 20; // Tốt (3 - 6 tháng)
+                strengths.add("Quỹ dự phòng an toàn (đủ trang trải " + emergencyMonths.toPlainString() + " tháng sinh hoạt).");
             } else if (emergencyMonths.compareTo(new BigDecimal("1.00")) >= 0) {
                 emergencyScore = 12; // Tạm chấp nhận (1 - 3 tháng)
+                recommendations.add("Quỹ dự phòng còn mỏng (" + emergencyMonths.toPlainString() + " tháng chi tiêu). Hãy ưu tiên tích lũy lên mốc tối thiểu 3 tháng.");
             } else {
                 emergencyScore = 4; // Rất mỏng (< 1 tháng)
+                recommendations.add("Quỹ khẩn cấp mỏng manh (chưa đủ sống 1 tháng nếu mất thu nhập). Cần gom tiền lập quỹ khẩn cấp ngay.");
             }
         } else {
             emergencyScore = 15;
@@ -164,47 +202,61 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
             dtiRatio = monthlyDebtPayment.multiply(BigDecimal.valueOf(100)).divide(monthlyIncome, 2, RoundingMode.HALF_UP);
 
             if (dtiRatio.compareTo(new BigDecimal("20.00")) <= 0) {
-                debtScore = 20; // An toàn cao (< 20%)
+                debtScore = 20;
             } else if (dtiRatio.compareTo(new BigDecimal("35.00")) <= 0) {
-                debtScore = 15; // Mức chấp nhận được (20 - 35%)
+                debtScore = 15;
+                recommendations.add("Tỷ lệ trả nợ DTI ở mức " + dtiRatio.toPlainString() + "% (ngưỡng an toàn là dưới 35%).");
             } else if (dtiRatio.compareTo(new BigDecimal("50.00")) <= 0) {
-                debtScore = 8;  // Nguy hiểm (35 - 50%)
+                debtScore = 8;
+                recommendations.add("Cảnh báo: Áp lực trả nợ đang chiếm " + dtiRatio.toPlainString() + "% thu nhập hàng tháng.");
             } else {
-                debtScore = 0;  // Quá tải nợ (> 50%)
+                debtScore = 0;
+                recommendations.add("🚨 GÁNH NẶNG NỢ QUÁ TẢI: Tiền trả nợ chiếm " + dtiRatio.toPlainString() + "% thu nhập! Cần tái cơ cấu nợ gấp.");
             }
         }
 
-        // Tổng kết điểm số
-        int totalScore = savingsScore + budgetScore + emergencyScore + debtScore;
-        if (totalScore > 100) totalScore = 100;
+        // --- TỔNG KẾT ĐIỂM SỐ & XỬ LÝ PHẠT KIỆT QUỆ THANH KHOẢN ---
+        int rawScore = savingsScore + budgetScore + emergencyScore + debtScore;
 
+        // Điểm phạt nếu tiêu quá trớn đến hết tiền hoặc bội chi sâu:
+        if (totalLiquidAssets.compareTo(BigDecimal.ZERO) <= 0) {
+            rawScore -= 25; // Phạt nặng nếu hết nhẵn tiền mặt
+            if (rawScore > 35) rawScore = 35; // Không thể vượt quá ngưỡng POOR/CRITICAL khi hết tiền
+        }
+        if (savingsRate.compareTo(new BigDecimal("-20.00")) < 0) {
+            rawScore -= 15; // Phạt bội chi nặng
+        }
+
+        int totalScore = Math.max(0, Math.min(100, rawScore));
+
+        // --- PHÂN LOẠI 5 MỐC ĐỘNG VÀ ĐÁNH GIÁ CHUYÊN BIỆT ---
         String grade;
         String assessment;
-        List<String> strengths = new ArrayList<>();
-        List<String> recommendations = new ArrayList<>();
 
         if (totalScore >= 85) {
             grade = "EXCELLENT";
-            assessment = "Tình trạng tài chính xuất sắc! Dòng tiền ổn định, tích lũy vượt trội và khả năng phòng thủ rủi ro rất cao.";
-            strengths.add("Tỷ lệ tiết kiệm và duy trì ngân sách ở mức rất tốt.");
-            strengths.add("Quỹ dự phòng đảm bảo an tâm trước mọi biến cố tài chính.");
-            recommendations.add("Có thể cân nhắc phân bổ một phần tiền nhàn rỗi sang các kênh đầu tư sinh lời dài hạn.");
+            assessment = "Tình trạng tài chính xuất sắc! Dòng tiền thặng dư dồi dào, kỷ luật ngân sách vững vàng và quỹ dự phòng rất an toàn.";
+            if (recommendations.isEmpty()) {
+                recommendations.add("Có thể cân nhắc phân bổ một phần tiền nhàn rỗi sang các kênh đầu tư sinh lời dài hạn.");
+            }
         } else if (totalScore >= 70) {
             grade = "GOOD";
-            assessment = "Tình trạng tài chính tốt. Bạn đang quản lý tốt thu chi nhưng cần tối ưu hóa một số danh mục chi tiêu.";
-            strengths.add("Duy trì dòng tiền dương đều đặn.");
-            recommendations.add("Tăng cường tích lũy để đạt mốc 6 tháng quỹ khẩn cấp.");
-            recommendations.add("Kiểm soát chặt chẽ các khoản chi ngoài kế hoạch.");
+            assessment = "Tình trạng tài chính tốt. Bạn đang quản lý tốt thu chi, duy trì dòng tiền dương ổn định.";
+            if (recommendations.isEmpty()) {
+                recommendations.add("Tiếp tục duy trì kỷ luật tích lũy để sớm nâng hạng lên mức Xuất sắc.");
+            }
         } else if (totalScore >= 50) {
             grade = "FAIR";
-            assessment = "Tình trạng tài chính ở mức trung bình. Cần thắt chặt chi tiêu và xây dựng quỹ dự phòng sớm.";
-            recommendations.add("Áp dụng nghiêm ngặt quy tắc ngân sách 50/30/20.");
-            recommendations.add("Hạn chế vay nợ mới và ưu tiên thanh toán các khoản nợ có lãi suất cao.");
-        } else {
+            assessment = "Tình trạng tài chính ở mức trung bình. Thu chi suýt soát hoặc quỹ dự phòng còn mỏng, cần thắt chặt các khoản chi tùy hứng.";
+        } else if (totalScore >= 30) {
             grade = "POOR";
-            assessment = "Cảnh báo rủi ro tài chính cao! Chi tiêu đang sát hoặc vượt thu nhập, quỹ dự phòng mỏng manh.";
-            recommendations.add("Cắt giảm ngay lập tức các chi phí mong muốn (Wants - cà phê, ăn ngoài, mua sắm).");
-            recommendations.add("Tìm cách gia tăng nguồn thu nhập phụ để tái cân bằng ngân sách.");
+            assessment = "Cảnh báo: Sức khỏe tài chính suy yếu! Bạn đang có dấu hiệu bội chi hoặc số dư ví sụt giảm nguy hiểm.";
+            recommendations.add("Cắt giảm ngay lập tức các chi phí mong muốn (ăn ngoài, mua sắm xa xỉ) để bảo toàn dòng tiền.");
+        } else {
+            grade = "CRITICAL";
+            assessment = "🚨 BÁO ĐỘNG ĐỎ: Tình trạng tài chính rất nguy kịch! Bạn đã tiêu quá trớn đến cạn sạch tiền mặt, bội chi nặng hoặc vỡ ngân sách nghiêm trọng!";
+            recommendations.add("NGỪNG TOÀN BỘ CÁC KHOẢN CHI TIÊU KHÔNG THIẾT YẾU ngay hôm nay!");
+            recommendations.add("Tìm kiếm nguồn thu bổ sung hoặc thanh lý bớt tài sản không sinh lời để phục hồi thanh khoản.");
         }
 
         FinancialHealthScoreDto dto = new FinancialHealthScoreDto();
@@ -225,5 +277,10 @@ public class FinancialHealthServiceImpl implements FinancialHealthService {
         log.info("Hoàn tất đánh giá sức khỏe tài chính User ID [{}]: Tổng điểm {}/100, Xếp loại [{}]",
                 userId, totalScore, grade);
         return dto;
+    }
+
+    private String formatMoney(BigDecimal amount) {
+        if (amount == null) return "0 VND";
+        return new java.text.DecimalFormat("#,##0 VND").format(amount);
     }
 }

@@ -248,7 +248,7 @@ public class AnalyticsRepositoryImpl implements AnalyticsRepository {
                 params.put("endDateTime", filter.getEndDate().atTime(LocalTime.MAX));
             }
             if (filter.getKeyword() != null && !filter.getKeyword().isBlank()) {
-                jpql.append("AND LOWER(t.description) LIKE :keyword ");
+                jpql.append("AND LOWER(t.note) LIKE :keyword ");
                 params.put("keyword", "%" + filter.getKeyword().trim().toLowerCase() + "%");
             }
         }

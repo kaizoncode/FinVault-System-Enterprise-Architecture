@@ -1,6 +1,7 @@
 package com.finvault.module4_analytics_reporting.service;
 
 import com.finvault.common.BusinessException;
+import com.finvault.module1_security_rbac.entity.Role;
 import com.finvault.module1_security_rbac.entity.User;
 import com.finvault.module1_security_rbac.repository.UserRepository;
 import com.finvault.module2_wallet_ledger.repository.WalletRepository;
@@ -61,6 +62,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Override
     public CashFlowTrendDto getDailyCashFlowTrend(String username, LocalDate startDate, LocalDate endDate) {
         User user = getUserByUsername(username);
+        boolean isSystemObserver = user.hasRole(Role.ROLE_SUPER_ADMIN) || user.hasRole(Role.ROLE_SYSTEM_AUDITOR);
+        Long targetUserId = isSystemObserver ? null : user.getId();
 
         LocalDate actualStart = (startDate != null) ? startDate : LocalDate.now().minusDays(30);
         LocalDate actualEnd = (endDate != null) ? endDate : LocalDate.now();
@@ -69,7 +72,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             throw new BusinessException("INVALID_DATE_RANGE", "Ngày kết thúc không thể trước ngày bắt đầu");
         }
 
-        List<CashFlowTrendDto.CashFlowDataPoint> points = analyticsRepository.getDailyCashFlowTrend(user.getId(), actualStart, actualEnd);
+        List<CashFlowTrendDto.CashFlowDataPoint> points = analyticsRepository.getDailyCashFlowTrend(targetUserId, actualStart, actualEnd);
 
         BigDecimal totalIn = points.stream().map(CashFlowTrendDto.CashFlowDataPoint::getInflow).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalOut = points.stream().map(CashFlowTrendDto.CashFlowDataPoint::getOutflow).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -89,9 +92,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Override
     public CashFlowTrendDto getMonthlyCashFlowTrend(String username, int year) {
         User user = getUserByUsername(username);
+        boolean isSystemObserver = user.hasRole(Role.ROLE_SUPER_ADMIN) || user.hasRole(Role.ROLE_SYSTEM_AUDITOR);
+        Long targetUserId = isSystemObserver ? null : user.getId();
+
         int targetYear = (year > 1900 && year < 2100) ? year : LocalDate.now().getYear();
 
-        List<CashFlowTrendDto.CashFlowDataPoint> points = analyticsRepository.getMonthlyCashFlowTrend(user.getId(), targetYear);
+        List<CashFlowTrendDto.CashFlowDataPoint> points = analyticsRepository.getMonthlyCashFlowTrend(targetUserId, targetYear);
 
         BigDecimal totalIn = points.stream().map(CashFlowTrendDto.CashFlowDataPoint::getInflow).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal totalOut = points.stream().map(CashFlowTrendDto.CashFlowDataPoint::getOutflow).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -111,12 +117,14 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Override
     public CategoryExpenseDistributionDto getCategoryExpenseDistribution(String username, LocalDate startDate, LocalDate endDate) {
         User user = getUserByUsername(username);
+        boolean isSystemObserver = user.hasRole(Role.ROLE_SUPER_ADMIN) || user.hasRole(Role.ROLE_SYSTEM_AUDITOR);
+        Long targetUserId = isSystemObserver ? null : user.getId();
 
         LocalDate actualStart = (startDate != null) ? startDate : LocalDate.now().withDayOfMonth(1);
         LocalDate actualEnd = (endDate != null) ? endDate : LocalDate.now();
 
         List<CategoryExpenseDistributionDto.CategoryExpenseItem> items =
-                analyticsRepository.getCategoryExpenseDistribution(user.getId(), actualStart, actualEnd);
+                analyticsRepository.getCategoryExpenseDistribution(targetUserId, actualStart, actualEnd);
 
         BigDecimal totalExpense = items.stream()
                 .map(CategoryExpenseDistributionDto.CategoryExpenseItem::getAmount)
@@ -131,13 +139,16 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Override
     public MonthlyFinancialSummaryDto getMonthlyFinancialSummary(String username, YearMonth yearMonth) {
         User user = getUserByUsername(username);
+        boolean isSystemObserver = user.hasRole(Role.ROLE_SUPER_ADMIN) || user.hasRole(Role.ROLE_SYSTEM_AUDITOR);
+        Long targetUserId = isSystemObserver ? null : user.getId();
+
         YearMonth targetYm = (yearMonth != null) ? yearMonth : YearMonth.now();
 
         LocalDate start = targetYm.atDay(1);
         LocalDate end = targetYm.atEndOfMonth();
 
-        BigDecimal income = analyticsRepository.sumTotalIncome(user.getId(), start, end);
-        BigDecimal expense = analyticsRepository.sumTotalExpense(user.getId(), start, end);
+        BigDecimal income = analyticsRepository.sumTotalIncome(targetUserId, start, end);
+        BigDecimal expense = analyticsRepository.sumTotalExpense(targetUserId, start, end);
         BigDecimal net = income.subtract(expense);
 
         BigDecimal savingsRate = BigDecimal.ZERO;

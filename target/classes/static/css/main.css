@@ -167,6 +167,7 @@ body {
 .health-score-circle.grade-good { border-color: #3b82f6; color: #1d4ed8; }
 .health-score-circle.grade-fair { border-color: #f59e0b; color: #b45309; }
 .health-score-circle.grade-poor { border-color: #ef4444; color: #b91c1c; }
+.health-score-circle.grade-critical { border-color: #991b1b; color: #7f1d1d; background-color: #fee2e2; }
 
 /* Budget Progress */
 .progress-budget {

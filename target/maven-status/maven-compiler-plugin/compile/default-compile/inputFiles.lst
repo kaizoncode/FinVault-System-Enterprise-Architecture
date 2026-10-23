@@ -32,6 +32,7 @@ E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\repository\UserReposi
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\BruteForceProtectionService.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\CustomUserDetailsService.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\LiveUiPermissionEvaluator.java
+E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\SecurityDataInitializer.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\TwoFactorAuthService.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\UserService.java
 E:\Nhom 3\src\main\java\com\finvault\module1_security_rbac\service\UserServiceImpl.java

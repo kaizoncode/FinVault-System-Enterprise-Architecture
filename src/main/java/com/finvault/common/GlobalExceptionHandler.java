@@ -133,6 +133,16 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("FILE_TOO_LARGE", "Dung lượng tệp vượt quá giới hạn 10MB cho phép."));
     }
 
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public Object handleNoResourceFoundException(org.springframework.web.servlet.resource.NoResourceFoundException ex, HttpServletRequest request) {
+        log.debug("Tài nguyên tĩnh không tìm thấy tại URI [{}]: {}", request.getRequestURI(), ex.getMessage());
+        if (isApiRequest(request)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error("RESOURCE_NOT_FOUND", ex.getMessage()));
+        }
+        return ResponseEntity.notFound().build();
+    }
+
     @ExceptionHandler(Exception.class)
     public Object handleGeneralException(Exception ex, HttpServletRequest request) {
         log.error("Lỗi hệ thống không lường trước tại URI [{}]: ", request.getRequestURI(), ex);

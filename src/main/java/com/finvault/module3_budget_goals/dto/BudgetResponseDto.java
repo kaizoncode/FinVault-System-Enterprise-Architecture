@@ -190,6 +190,18 @@ public class BudgetResponseDto implements Serializable {
         return usagePercentage;
     }
 
+    public BigDecimal getSpentPercentage() {
+        return usagePercentage != null ? usagePercentage : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getCurrentSpent() {
+        return spentAmount != null ? spentAmount : BigDecimal.ZERO;
+    }
+
+    public BigDecimal getLimitAmount() {
+        return allocatedAmount != null ? allocatedAmount : BigDecimal.ZERO;
+    }
+
     public void setUsagePercentage(BigDecimal usagePercentage) {
         this.usagePercentage = usagePercentage;
     }

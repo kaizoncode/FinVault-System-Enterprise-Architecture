@@ -174,6 +174,10 @@ public class Wallet extends BaseEntity {
         return bankAccountNumber;
     }
 
+    public String getAccountNumber() {
+        return bankAccountNumber;
+    }
+
     public void setBankAccountNumber(String bankAccountNumber) {
         this.bankAccountNumber = bankAccountNumber;
     }
